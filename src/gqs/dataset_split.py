@@ -47,7 +47,7 @@ def split_random(input_file: pathlib.Path, splits: Iterable[Split], seed: int, l
             # repeat the last element
             randomized_splits.append(randomized_splits[len(randomized_splits) - 1])
         assert len(randomized_splits) == lines
-        rng=random.Random(seed)
+        rng = random.Random(seed)
         rng.shuffle(randomized_splits)
         with open(input_file) as input:
             for line in input:
