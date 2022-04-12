@@ -1,12 +1,11 @@
 """Functions to split a file with triples into a train, validation, and test split"""
 
 import pathlib
+import random
 from collections import Counter
 from contextlib import ExitStack
 from dataclasses import dataclass
-from typing import Callable, Iterable, MutableMapping, Set, TextIO
-
-import pyhash
+from typing import Iterable, MutableMapping, Optional, Set, TextIO
 
 
 @dataclass
@@ -15,37 +14,47 @@ class Split:
     path: pathlib.Path
 
 
-def _hasher(splits: Iterable[Split], seed: int) -> Callable[[str], Split]:
-    hashfunction = pyhash.city_32(seed)
-
-    def f(line: str) -> Split:
-        hashvalue = hashfunction(line)
-        in_interval = hashvalue / float(2**32)
-        current_accumulated = 0.0
-        for split in splits:
-            current_accumulated += split.fraction
-            if in_interval <= current_accumulated:
-                return split
-        raise Exception("The flow should never reach here with a correct set of splits. Was validate splits called before the call?")
-    return f
+def _comment_line(line: str) -> bool:
+    return line.strip().startswith("#")
 
 
-def split_hash(input_file: pathlib.Path, splits: Iterable[Split], seed: int):
+def _count_non_comment_lines(input_file: pathlib.Path) -> int:
+    count = 0
+    with open(input_file) as input:
+        for line in input:
+            if not _comment_line(line):
+                count += 1
+    return count
+
+
+def split_random(input_file: pathlib.Path, splits: Iterable[Split], seed: int, lines: Optional[int] = None):
     validate_splits(splits)
     # The following esures all files will be closed correctly
+    if lines is None:
+        lines = _count_non_comment_lines(input_file)
+
     with ExitStack() as stack:
-        files_for_splits: MutableMapping[pathlib.Path, TextIO] = {}
+        randomized_splits = []
         for split in splits:
+            total_for_this_split = int(split.fraction * lines)
             opened_file = stack.enter_context(open(split.path, "w"))
-            files_for_splits[split.path] = opened_file
-        hasher = _hasher(splits, seed)
+            randomized_splits.extend([opened_file for i in range(total_for_this_split)])
+        # it is possibel that due to rounding, randomizedsplits is not exactly as long as the file
+        while len(randomized_splits) > lines:
+            # remove the last element
+            randomized_splits.pop
+        while len(randomized_splits) < lines:
+            # repeat the last element
+            randomized_splits.append(randomized_splits[len(randomized_splits) - 1])
+        assert len(randomized_splits) == lines
+        rng=random.Random(seed)
+        rng.shuffle(randomized_splits)
         with open(input_file) as input:
             for line in input:
-                line = line.strip()
-                if line.startswith("#"):
+                if _comment_line(line):
                     continue
-                selected_split = hasher(line)
-                file = files_for_splits[selected_split.path]
+                # we take of the last element, this does not really matter, but implicitly reverses the randomized list!
+                file = randomized_splits.pop()
                 file.write(line + '\n')
 
 
@@ -60,8 +69,7 @@ def split_round_robin(input_file: pathlib.Path, splits: Iterable[Split]):
             files_for_splits[split.path] = opened_file
         with open(input_file) as input:
             for line in input:
-                line = line.strip()
-                if line.startswith("#"):
+                if _comment_line(line):
                     continue
                 total_count += 1
                 # check the counters one by one, if one of them is too low now, add it to that split
