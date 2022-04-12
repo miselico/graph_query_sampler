@@ -51,6 +51,7 @@ def split_random(input_file: pathlib.Path, splits: Iterable[Split], seed: int, l
         rng.shuffle(randomized_splits)
         with open(input_file) as input:
             for line in input:
+                line = line.strip()
                 if _comment_line(line):
                     continue
                 # we take of the last element, this does not really matter, but implicitly reverses the randomized list!
@@ -69,6 +70,7 @@ def split_round_robin(input_file: pathlib.Path, splits: Iterable[Split]):
             files_for_splits[split.path] = opened_file
         with open(input_file) as input:
             for line in input:
+                line = line.strip()
                 if _comment_line(line):
                     continue
                 total_count += 1
