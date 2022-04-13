@@ -71,8 +71,8 @@ def split_random(input: pathlib.Path, dataset: str, seed: int, train_fraction: f
 @click.option('--validation-fraction', type=float, help='fraction of the triples to be put into the validation set', default=0.10)
 @click.option('--test-fraction', type=float, help='fraction of the triples to be put into the test set', default=0.20)
 def split_round_robin(input: pathlib.Path, dataset: str, train_fraction: float, validation_fraction: float, test_fraction: float):
-    dataset = pathlib.Path("datasets") / dataset
-    splits = _splits_from_path(dataset, train_fraction, validation_fraction, test_fraction)
+    dataset_location = pathlib.Path("datasets") / dataset
+    splits = _splits_from_path(dataset_location, train_fraction, validation_fraction, test_fraction)
     dataset_split.split_round_robin(input, splits)
 
 
@@ -88,9 +88,11 @@ def remove_split(dataset: str):
         else:
             print(f"Could not find {the_split.absolute()}")
 
+
 @main.group()
 def store():
     "Put the datset splits into a triple store"
+
 
 option_database_url = click.option(
     '--database-url', type=str, help='The URL of the database', default="http://localhost:7200/"
@@ -109,18 +111,17 @@ def store_graphdb(dataset: str, database_url: str):
         assert split_file.exists(), f"The split {split_file} could not be found, not starting"
 
     dataset_store.create_graphdb_repository(repositoryID, database_url)
-    for split in [
-            ("split:train", ["train"]),
-            ("split:validation", ["validation"]),
-            ("split:test",["test"]),
-            ("split:train-validation", ["train", "validation"]),
-            ("split:all", ["train", "test", "validation"]),
-        ]:
-        splitname = split[0]
-        splitparts = split[1]
+    for split_combo in [
+        ("split:train", ["train"]),
+        ("split:validation", ["validation"]),
+        ("split:test", ["test"]),
+        ("split:train-validation", ["train", "validation"]),
+        ("split:all", ["train", "test", "validation"]),
+    ]:
+        splitname = split_combo[0]
+        splitparts = split_combo[1]
         for part in splitparts:
             dataset_store.store_triples(repositoryID, dataset_location / "splits" / part, splitname, database_url)
-
 
 
 @store.command(name="clear-graphdb", help="Remove the specified dataset from graphDB. Warning: all data in the dataset will be lost.")

@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 def create_graphdb_repository(repositoryID: str, graphdb_url: str):
     url = f"{graphdb_url}/rest/repositories"
-   #  headers = {'Accept': '*/*', 'Content-Type': 'multipart/form-data'}
     files = {'config': ('config.ttl', f'''
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
 @prefix rep: <http://www.openrdf.org/config/repository#>.
@@ -33,7 +32,7 @@ def create_graphdb_repository(repositoryID: str, graphdb_url: str):
             owlim:entity-index-size "10000000" ;
             owlim:entity-id-size  "32" ;
             owlim:imports "" ;
-        	owlim:repository-type "file-repository" ;
+            owlim:repository-type "file-repository" ;
             owlim:ruleset "empty" ;
             owlim:storage-folder "storage" ;
 
@@ -57,6 +56,7 @@ def create_graphdb_repository(repositoryID: str, graphdb_url: str):
     if response.status_code != 201:
         raise Exception(f"Creating the repository failed. does it alreade exist? Message: {str(response.content)}")
 
+
 def store_triples(repositoryID: str, data: pathlib.Path, graphname: str, graphdb_url: str):
     url = f"{graphdb_url}/rest/data/import/upload/{repositoryID}/file"
 
@@ -73,14 +73,10 @@ def store_triples(repositoryID: str, data: pathlib.Path, graphname: str, graphdb
                        "requestIdHeadersToForward": None,
                        }
     import_setting_json = json.dumps(import_settings)
-
     files = {
         'importSettings': ('blob', import_setting_json, 'application/json'),
         'file': ('data.nt', open(data, 'rb'), 'application/octet-stream')
     }
-
-   #  headers = {'Accept': '*/*', 'Content-Type': 'multipart/form-data'}
-
     response = requests.post(url=url, files=files)
     if response.status_code != 202:
         raise Exception(f"Unexpected response from triple store. Uploading the file failed: {str(response.content)}")
