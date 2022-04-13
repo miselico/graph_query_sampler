@@ -37,6 +37,7 @@ def split_random(input_file: pathlib.Path, splits: Iterable[Split], seed: int, l
         randomized_splits = []
         for split in splits:
             total_for_this_split = int(split.fraction * lines)
+            split.path.parent.mkdir(parents=True, exist_ok=True)
             opened_file = stack.enter_context(open(split.path, "w"))
             randomized_splits.extend([opened_file for i in range(total_for_this_split)])
         # it is possibel that due to rounding, randomizedsplits is not exactly as long as the file
@@ -55,8 +56,11 @@ def split_random(input_file: pathlib.Path, splits: Iterable[Split], seed: int, l
                 if _comment_line(line):
                     continue
                 # we take of the last element, this does not really matter, but implicitly reverses the randomized list!
+                if len(randomized_splits) == 0:
+                    raise Exception("The specified number fo lines is smaller than the actual number")
                 file = randomized_splits.pop()
                 file.write(line + '\n')
+        assert len(randomized_splits) == 0, "The specified number of lines was bigger than the actual number"
 
 
 def split_round_robin(input_file: pathlib.Path, splits: Iterable[Split]):
