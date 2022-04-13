@@ -65,6 +65,7 @@ def split_random(input_file: pathlib.Path, splits: Iterable[Split], seed: int, l
 
 def split_round_robin(input_file: pathlib.Path, splits: Iterable[Split]):
     # The following esures all files will be closed correctly
+    validate_splits(splits)
     counters: Counter[pathlib.Path] = Counter()
     total_count = 0
     with ExitStack() as stack:

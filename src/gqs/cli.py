@@ -66,10 +66,10 @@ def split_random(input: pathlib.Path, dataset: pathlib.Path, seed: int, train_fr
 @split.command(name="round-robin", help='''Create the data splits from the input file and store them in a directory with the same name as the dataset name. Triples are assigned to splits in a round robin fashion.''')
 @click.option('--input', type=pathlib.Path, help='The original data file in n-triples format, lines starting with # are ignored')
 @option_dataset_name
-@click.option('--train-fraction', type=float, help='fraction of the triples to be put into the training set')
-@click.option('--validation-fraction', type=float, help='fraction of the triples to be put into the validation set')
-@click.option('--test-fraction', type=float, help='fraction of the triples to be put into the test set')
-def split_rround_robin(input: pathlib.Path, dataset: pathlib.Path, seed: int, train_fraction: float, validation_fraction: float, test_fraction: float):
+@click.option('--train-fraction', type=float, help='fraction of the triples to be put into the training set', default=0.70)
+@click.option('--validation-fraction', type=float, help='fraction of the triples to be put into the validation set', default=0.10)
+@click.option('--test-fraction', type=float, help='fraction of the triples to be put into the test set', default=0.20)
+def split_round_robin(input: pathlib.Path, dataset: pathlib.Path, train_fraction: float, validation_fraction: float, test_fraction: float):
     splits = _splits_from_path(dataset, train_fraction, validation_fraction, test_fraction)
     dataset_split.split_round_robin(input, splits)
 
