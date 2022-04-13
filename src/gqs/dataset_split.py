@@ -71,6 +71,7 @@ def split_round_robin(input_file: pathlib.Path, splits: Iterable[Split]):
     with ExitStack() as stack:
         files_for_splits: MutableMapping[pathlib.Path, TextIO] = {}
         for split in splits:
+            split.path.parent.mkdir(parents=True, exist_ok=True)
             opened_file = stack.enter_context(open(split.path, "w"))
             files_for_splits[split.path] = opened_file
         with open(input_file) as input:
