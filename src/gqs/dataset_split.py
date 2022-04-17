@@ -7,6 +7,12 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import Iterable, MutableMapping, Optional, Set, TextIO
 
+from gqs.dataset import Dataset
+
+__all__ = [
+    "Split", "split_random", "split_round_robin"
+]
+
 
 @dataclass
 class Split:
@@ -27,9 +33,10 @@ def _count_non_comment_lines(input_file: pathlib.Path) -> int:
     return count
 
 
-def split_random(input_file: pathlib.Path, splits: Iterable[Split], seed: int, lines: Optional[int] = None):
+def split_random(dataset: Dataset, splits: Iterable[Split], seed: int, lines: Optional[int] = None):
     validate_splits(splits)
     # The following esures all files will be closed correctly
+    input_file = dataset.raw_input_file()
     if lines is None:
         lines = _count_non_comment_lines(input_file)
 
@@ -63,7 +70,8 @@ def split_random(input_file: pathlib.Path, splits: Iterable[Split], seed: int, l
         assert len(randomized_splits) == 0, "The specified number of lines was bigger than the actual number"
 
 
-def split_round_robin(input_file: pathlib.Path, splits: Iterable[Split]):
+def split_round_robin(dataset: Dataset, splits: Iterable[Split]):
+    input_file = dataset.raw_input_file()
     # The following esures all files will be closed correctly
     validate_splits(splits)
     counters: Counter[pathlib.Path] = Counter()

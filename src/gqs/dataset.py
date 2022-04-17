@@ -1,0 +1,64 @@
+
+from pathlib import Path
+import re
+from typing import Tuple
+
+
+def valid_name(name: str) -> Tuple[bool, str]:
+    if re.match(r"^[a-z0-9_]+$", name):
+        return True, ""
+    else:
+        return False, f"a dataset name must match [_a-z]+, got {name}"
+
+
+class Dataset:
+    def __init__(self, dataset_name: str):
+        valid, expl = valid_name(dataset_name)
+        assert valid, expl
+        self.name = dataset_name
+
+    def location(self) -> Path:
+        return (Path("./datasets") / self.name).resolve()
+
+    def raw_location(self) -> Path:
+        return self.location() / "rawdata/"
+
+    def raw_input_file(self) -> Path:
+        files = [f for f in self.raw_location().iterdir()]
+        assert len(files) == 1, f"There is not exactly 1 file in the raw data directory {self.raw_location()}, aborting"
+        return files[0]
+
+    def splits_location(self) -> Path:
+        return self.location() / "splits"
+
+    def train_split_location(self) -> Path:
+        return self.splits_location() / "train"
+
+    def validation_split_location(self) -> Path:
+        return self.splits_location() / "validation"
+
+    def test_split_location(self) -> Path:
+        return self.splits_location() / "test"
+
+    def raw_formulas_location(self) -> Path:
+        return self.location() / "formulas" / "raw"
+
+    def formulas_location(self) -> Path:
+        """The location of the preprocessed formulas"""
+        return self.location() / "formulas" / "with_constraints"
+
+    def query_location(self) -> Path:
+        """The location where all queries in this dataset will be stored"""
+        return self.location() / "queries"
+
+    def query_csv_location(self) -> Path:
+        return self.query_location() / "csv"
+
+    def graphDB_repositoryID(self) -> str:
+        return self.name
+
+    def graphDB_url_to_endpoint(self, database_url: str) -> str:
+        return database_url + "/repositories/" + self.graphDB_repositoryID()
+
+    def __str__(self) -> str:
+        return f"Dataset({self.name})"

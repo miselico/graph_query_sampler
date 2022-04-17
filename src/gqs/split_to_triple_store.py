@@ -7,6 +7,12 @@ import requests
 import uuid
 import logging
 
+from gqs.dataset import Dataset
+
+__all__ = [
+    "create_graphdb_repository", "remove_graphdb_repository", "store_triples"
+]
+
 logger = logging.getLogger(__name__)
 
 
@@ -111,8 +117,10 @@ def store_triples(repositoryID: str, data: pathlib.Path, graphname: str, graphdb
                 raise Exception("Unknown upoad status")
 
 
-def remove_graphdb_repository(repositoryID: str, graphdb_url: str):
+def remove_graphdb_repository(dataset: Dataset, graphdb_url: str):
+    repositoryID = dataset.graphDB_repositoryID()
     url = f"{graphdb_url}/rest/repositories/{repositoryID}"
+    print(url)
     response = requests.delete(url)
     if response.status_code != 200:
         raise Exception(str(response.content))
