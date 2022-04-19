@@ -13,8 +13,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, DefaultDict, Dict, Iterable, List, Optional
 
-from rdflib.plugins.stores.sparqlstore import SPARQLStore
-from rdflib.query import Result
+from ._sparql_execution import execute_csv_sparql_silenced, execute_sparql_to_result_silenced
 
 from gqs.dataset import Dataset
 from requests import HTTPError
@@ -77,7 +76,7 @@ def preprocess_formulas(dataset: Dataset, sparql_endpoint: str, sparql_endpoint_
                 type = restriction["type"]
                 raise Exception(f"unknown restriction type: {type}")
             # print(query)
-            results = _execute_sparql_to_result_silenced(query, sparql_endpoint, sparql_endpoint_options)
+            results = execute_sparql_to_result_silenced(query, sparql_endpoint, sparql_endpoint_options)
             for result in results:
                 entity = result.get("entity")
                 excluded_entities[restriction["variable"]].add(str(entity))
@@ -242,7 +241,7 @@ def _execute_one_query(query: str, destination_path: Path, sparql_endpoint: str,
     Performs the query provided and writes the results as a CSV to the destination.
     the queries are shuffled randomly (fixed seed) before storing to make later sampling a top-k operation instead of real sampling
     """
-    result = _execute_csv_sparql_silenced(query, sparql_endpoint, sparql_endpoint_options)
+    result = execute_csv_sparql_silenced(query, sparql_endpoint, sparql_endpoint_options)
     # convert to string and take of the leading '?'
     assert result.vars is not None, "No variables for formula query"
     vars: List[Variable] = result.vars
@@ -265,28 +264,6 @@ def _execute_one_query(query: str, destination_path: Path, sparql_endpoint: str,
         for one_query in all_queries:
             writer.writerow(one_query.asdict())
     return query_count
-
-
-def _execute_csv_sparql_silenced(query: str, sparql_endpoint: str, sparql_endpoint_options: Dict[str, Any]) -> Result:
-    store = SPARQLStore(sparql_endpoint, returnFormat="csv", method="POST", **sparql_endpoint_options)  # headers={}
-    global_logger = logging.getLogger()
-    original_level = global_logger.getEffectiveLevel()
-    global_logger.setLevel(logging.ERROR)
-    try:
-        return store.query(query)
-    finally:
-        global_logger.setLevel(original_level)
-
-
-def _execute_sparql_to_result_silenced(query: str, sparql_endpoint: str, sparql_endpoint_options: Dict[str, Any]) -> Result:
-    store = SPARQLStore(sparql_endpoint, method="POST", **sparql_endpoint_options)  # headers={}
-    global_logger = logging.getLogger()
-    original_level = global_logger.getEffectiveLevel()
-    # global_logger.setLevel(logging.ERROR)
-    try:
-        return store.query(query)
-    finally:
-        global_logger.setLevel(original_level)
 
 
 subject_matcher = re.compile("s[0-9]+")

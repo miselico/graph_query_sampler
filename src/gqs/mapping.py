@@ -2,8 +2,11 @@
 
 
 import logging
-from typing import Iterable
+import pathlib
+from typing import Any, Dict, Iterable, Tuple
 from .dataset import Dataset
+
+from ._sparql_execution import execute_sparql_to_result_silenced
 
 # from tqdm import tqdm
 
@@ -275,17 +278,61 @@ class EntityMapper:
     #     return self._normal_entity_end + 3  # 3 = target/variable/reification blank node
 
 
-def get_entity_mapper(dataset: Dataset) -> EntityMapper:
-    raise NotImplementedError()
+def create_mapping(dataset: Dataset, sparql_endpoint: str, sparql_endpoint_options: Dict[str, Any]):
+    def query_entities_to_file(query, file: pathlib.Path, var: str):
+        entities = []
+        for result in execute_sparql_to_result_silenced(query, sparql_endpoint, sparql_endpoint_options):
+            entities.append(str(result.get(var)))
+        entities.sort()
+        with open(file, "wt") as output_file:
+            output_file.write('\n'.join(entities))
+    if dataset.mapping_location().exists():
+        raise Exception("The folder for mappings already exists, remove it first. Aborting.")
+    dataset.mapping_location().mkdir(parents=True, exist_ok=False)
+    entities_query = """
+    select distinct ?entity where
+    {
+        graph<split:all>{
+            {?entity ?_p ?_o} UNION {?_s ?_p ?entity} UNION { <<?_s ?_p ?_o>> ?_qr ?entity }
+        }
+        FILTER(isIRI(?entity))
+    }"""
+    query_entities_to_file(entities_query, dataset.entity_mapping_location(), "entity")
+
+    relations_query = """
+    select distinct ?relation where
+    {
+        graph<split:all>{
+            {?_s ?relation ?_o} UNION { <<?_s ?_p ?_o>> ?relation ?_o }
+        }
+        FILTER(isIRI(?relation))
+    }"""
+    query_entities_to_file(relations_query, dataset.relation_mapping_location(), "relation")
 
 
-def get_relation_mapper(dataset: Dataset) -> EntityMapper:
-    raise NotImplementedError()
+def remove_mapping(dataset: Dataset):
+    dataset.relation_mapping_location().unlink(missing_ok=True)
+    dataset.entity_mapping_location().unlink(missing_ok=True)
+    if dataset.mapping_location().exists():
+        dataset.mapping_location().rmdir()
 
 
-def create_mapping(dataset: Dataset):
-    raise NotImplementedError()
+def get_mappers(dataset: Dataset) -> Tuple[RelationMapper, EntityMapper]:
+    relmap = get_relation_mapper(dataset)
+    entmap = get_entity_mapper(dataset, relmap)
+    return relmap, entmap
 
+
+def get_relation_mapper(dataset: Dataset) -> RelationMapper:
+    with open(dataset.relation_mapping_location()) as relation_file:
+        relations = relation_file.readlines()
+        return RelationMapper(relations)
+
+
+def get_entity_mapper(dataset: Dataset, relmap: RelationMapper) -> EntityMapper:
+    with open(dataset.entity_mapping_location()) as entity_file:
+        entities = entity_file.readlines()
+        return EntityMapper(entities, relmap)
 
 # def _pad_statements_(data: List[list], max_len: int) -> List[list]:
 #     """Padding index is always 0 as in the embedding layers of models. Cool? Cool. """

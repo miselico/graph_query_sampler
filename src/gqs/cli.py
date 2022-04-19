@@ -4,13 +4,15 @@ import shutil
 from typing import Sequence
 
 import click
-from gqs import dataset_split, split_to_triple_store, sample_queries
+from gqs import dataset_split, split_to_triple_store, sample_queries, mapping as gqs_mapping
 from gqs.dataset import Dataset
+
+from ._sparql_execution import execute_sparql_to_result_silenced
 
 logger = logging.getLogger(__file__)
 
 
-@click.group()
+@click.group(context_settings={'show_default': True})
 def main():
     """The main entry point."""
 
@@ -119,12 +121,10 @@ option_database_url = click.option(
 @option_dataset
 @option_database_url
 def store_graphdb(dataset: Dataset, database_url: str):
-    repositoryID = dataset.graphDB_repositoryID()
-#    dataset_location = pathlib.Path("datasets") / dataset
     for split in [dataset.train_split_location(), dataset.validation_split_location(), dataset.test_split_location()]:
         assert split.exists(), f"The split {split} could not be found, not starting"
 
-    split_to_triple_store.create_graphdb_repository(repositoryID, database_url)
+    split_to_triple_store.create_graphdb_repository(dataset.graphDB_repositoryID(), database_url)
     for split_combo in [
         ("split:train", [dataset.train_split_location()]),
         ("split:validation", [dataset.validation_split_location()]),
@@ -135,7 +135,20 @@ def store_graphdb(dataset: Dataset, database_url: str):
         splitname = split_combo[0]
         splitparts = split_combo[1]
         for part in splitparts:
-            split_to_triple_store.store_triples(repositoryID, part, splitname, database_url)
+            split_to_triple_store.store_triples(dataset, part, splitname, database_url)
+    # check whether the imported files contains blank nodes, if so, warn the user
+    query = """ASK {graph<split:all>{
+            {?entity ?_p ?_o} UNION {?_s ?_p ?entity} UNION { <<?_s ?_p ?_o>> ?_qr ?entity }
+        }
+        FILTER(isBlank(?entity))
+    }"""
+    has_blank_nodes = execute_sparql_to_result_silenced(query, dataset.graphDB_url_to_endpoint(database_url), {})
+    if has_blank_nodes:
+        raise Exception("""You have imported data which contains blank nodes. This will lead to issues:
+        Blank nodes will not be taken into account while generating the mapping to indices for tensors.
+        Blank nodes in different splits will have different identities, causing query generation to fail.
+        Do not continue, unless you know what you are doing.
+        """)
 
 
 @store.command(name="clear-graphdb", help="Remove the specified dataset from graphDB. Warning: all data in the dataset will be lost.")
@@ -174,3 +187,22 @@ def sample(dataset: Dataset, database_url: str, keep_uncompressed: bool):
     """Create queries from the stored triples"""
     sparql_endpoint = dataset.graphDB_url_to_endpoint(database_url)
     sample_queries.execute_queries(dataset, sparql_endpoint, compress=not keep_uncompressed)
+
+
+@main.group()
+def mapping():
+    """Manage numeric indices for identifiers used in the dataset. these are requird for converting queries into tensor forms"""
+
+
+@mapping.command("create")
+@option_dataset
+@option_database_url
+def create_mapping(dataset: Dataset, database_url: str):
+    sparql_endpoint = dataset.graphDB_url_to_endpoint(database_url)
+    gqs_mapping.create_mapping(dataset, sparql_endpoint, {})
+
+
+@mapping.command("remove")
+@option_dataset
+def remove_mapping(dataset: Dataset):
+    gqs_mapping.remove_mapping(dataset)

@@ -54,8 +54,17 @@ class Dataset:
     def query_csv_location(self) -> Path:
         return self.query_location() / "csv"
 
+    def mapping_location(self) -> Path:
+        return self.location() / "mapping"
+
+    def entity_mapping_location(self) -> Path:
+        return self.mapping_location() / "entities.txt"
+
+    def relation_mapping_location(self) -> Path:
+        return self.mapping_location() / "relations.txt"
+
     def graphDB_repositoryID(self) -> str:
-        return self.name
+        return "gqs-" + self.name
 
     def graphDB_url_to_endpoint(self, database_url: str) -> str:
         return database_url + "/repositories/" + self.graphDB_repositoryID()

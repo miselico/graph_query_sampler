@@ -7,7 +7,7 @@ import requests
 import uuid
 import logging
 
-from gqs.dataset import Dataset
+from .dataset import Dataset
 
 __all__ = [
     "create_graphdb_repository", "remove_graphdb_repository", "store_triples"
@@ -63,7 +63,8 @@ def create_graphdb_repository(repositoryID: str, graphdb_url: str):
         raise Exception(f"Creating the repository failed. does it alreade exist? Message: {str(response.content)}")
 
 
-def store_triples(repositoryID: str, data: pathlib.Path, graphname: str, graphdb_url: str):
+def store_triples(dataset: Dataset, data: pathlib.Path, graphname: str, graphdb_url: str):
+    repositoryID = dataset.graphDB_repositoryID()
     url = f"{graphdb_url}/rest/data/import/upload/{repositoryID}/file"
 
     unique_name = str(uuid.uuid4()) + "-data.nt"
