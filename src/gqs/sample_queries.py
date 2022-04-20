@@ -7,6 +7,7 @@ import json
 import logging
 import random
 import re
+import shutil
 from rdflib import Variable
 import traceback
 from collections import defaultdict
@@ -21,8 +22,9 @@ from requests import HTTPError
 # from .config import formula_root, query_root, sparql_endpoint_address as default_sparql_endpoint_address, sparql_endpoint_options as default_sparql_endpoint_options
 
 __all__ = [
-    "preprocess_formulas"
-    #    "execute_queries",
+    "preprocess_formulas",
+    "execute_queries",
+    "remove_queries"
 ]
 
 logger = logging.getLogger(__name__)
@@ -264,6 +266,11 @@ def _execute_one_query(query: str, destination_path: Path, sparql_endpoint: str,
         for one_query in all_queries:
             writer.writerow(one_query.asdict())
     return query_count
+
+
+def remove_queries(dataset: Dataset):
+    csv_location = dataset.query_csv_location()
+    shutil.rmtree(csv_location)
 
 
 subject_matcher = re.compile("s[0-9]+")
