@@ -1,5 +1,4 @@
 """Perform SPARQL queries to generate the dataset."""
-from contextlib import ExitStack
 import csv
 import gzip
 import hashlib
@@ -8,16 +7,19 @@ import logging
 import random
 import re
 import shutil
-from rdflib import Variable
 import traceback
 from collections import defaultdict
+from contextlib import ExitStack
 from pathlib import Path
-from typing import Any, DefaultDict, Dict, Iterable, List, Optional
+from typing import Any, DefaultDict, Dict, Iterable, List, Optional, Tuple
 
-from ._sparql_execution import execute_csv_sparql_silenced, execute_sparql_to_result_silenced
-
+import pandas as pd
 from gqs.dataset import Dataset
+from rdflib import Variable
 from requests import HTTPError
+
+from ._sparql_execution import (execute_csv_sparql_silenced,
+                                execute_sparql_to_result_silenced)
 
 # from .config import formula_root, query_root, sparql_endpoint_address as default_sparql_endpoint_address, sparql_endpoint_options as default_sparql_endpoint_options
 
@@ -53,8 +55,7 @@ def preprocess_formulas(dataset: Dataset, sparql_endpoint: str, sparql_endpoint_
             # this directory has no sparql files, skip.
             continue
         # every folder with formulas must have its own config file
-        with open(source / "config.json") as configfile:
-            configuration = json.load(configfile)
+        configuration = _load_json_from_file(source / "config.json")
         # we keep a map from the variable names to the entities which are restricted
         excluded_entities: DefaultDict[str, set] = defaultdict(set)
         for restriction in configuration["restrictions"]:
@@ -92,6 +93,16 @@ def preprocess_formulas(dataset: Dataset, sparql_endpoint: str, sparql_endpoint_
             query_processed = query_unprocessed.replace("### restrictions ###", filter_string, 1)
             target_path = target / split.name
             target_path.write_text(query_processed)
+
+
+def _load_json_from_file(the_path: Path) -> Any:
+    with open(the_path, "rt") as the_file:
+        return json.load(the_file)
+
+
+def _dump_json_to_file(the_path: Path, json_object: Any):
+    with open(the_path, "wt") as the_file:
+        return json.dump(json_object, the_file)
 
 
 def execute_queries(
@@ -165,9 +176,9 @@ def execute_queries(
         If a query fails and continue_on_error is False, an Exception is raised.
 
     """
-
+    # first results are stored in temp/ After splitting hard and easy answers, they are put into the dataset
     formulas_directory: Path = dataset.formulas_location()
-    target_directory: Path = dataset.query_csv_location()
+    target_directory: Path = dataset.raw_query_csv_location()
     sparql_endpoint_options = sparql_endpoint_options or {}
 
     if not list(formulas_directory.rglob("*.sparql")):
@@ -198,8 +209,7 @@ def execute_queries(
         if absolute_target_path.is_file():
             # check the old hash from the stats file if it exists
             if status_file_path.is_file():
-                with status_file_path.open("r") as status_file:
-                    old_stats = json.load(status_file)
+                old_stats = _load_json_from_file(status_file_path)
                 old_query_hash = old_stats["hash"]
                 if old_query_hash == new_query_hash:
                     logger.info(f"Queries already exist for {query_file_path.as_uri()} and hash matches. Not performing the query.")
@@ -218,10 +228,9 @@ def execute_queries(
                 count = _execute_one_query(query, absolute_target_path, sparql_endpoint, sparql_endpoint_options, shuffling_random_seed, compress)
             except HTTPError as e:
                 raise Exception(str(e) + str(e.response.content)) from e
-            new_stats = {"name": name_stem, "hash": new_query_hash, "count": count}
+            new_stats = {"name": name_stem, "hash": new_query_hash, "raw-count": count}
             try:
-                with status_file_path.open("w") as status_file:
-                    json.dump(new_stats, status_file)
+                _dump_json_to_file(status_file_path, new_stats)
             except Exception:
                 # something went wrong writing the stats file, best to remove it and crash.
                 logger.error("Failed writing the stats, removing the file to avoid inconsistent state")
@@ -236,6 +245,7 @@ def execute_queries(
                 traceback.print_tb(err.__traceback__)
             else:
                 raise
+    _separate_hard_and_easy_targets(target_directory, dataset.query_csv_location())
 
 
 def _execute_one_query(query: str, destination_path: Path, sparql_endpoint: str, sparql_endpoint_options: Dict[str, Any], shuffling_random_seed: int, compress: bool) -> int:
@@ -268,8 +278,102 @@ def _execute_one_query(query: str, destination_path: Path, sparql_endpoint: str,
     return query_count
 
 
+def _separate_hard_and_easy_targets(raw_query_directory: Path, target_path: Path):
+    for (source, target) in pairwise_directories(raw_query_directory, target_path):
+        train_input_file = (source / "train.csv.gz")
+        validation_input_file = (source / "validation.csv.gz")
+        test_input_file = (source / "test.csv.gz")
+        if train_input_file.exists() or validation_input_file.exists() or test_input_file.exists():
+            assert train_input_file.exists() and validation_input_file.exists() and test_input_file.exists(),  \
+                f"Found one of train, validation, or test, but not all three in {source.relative_to(raw_query_directory)}. Cannot continue"
+        else:
+            continue
+        # At this point we know that all three input files exist, loading their stats
+        train_stats = _load_json_from_file(source / "train_stats.json")
+        validation_stats = _load_json_from_file(source / "validation_stats.json")
+        test_stats = _load_json_from_file(source / "test_stats.json")
+
+        train_output_file = (target / "train.csv.gz")
+        validation_output_file = (target / "validation.csv.gz")
+        test_output_file = (target / "test.csv.gz")
+
+        # train can just be copied directly, we do not even check the hash because this should be about as fast
+        shutil.copyfile(train_input_file, train_output_file)
+        train_stats["count"] = train_stats["raw-count"]
+        _dump_json_to_file(target / "train_stats.json", train_stats)
+
+        # load the datasets
+        train, target_column = _read_csv_with_target_as_set(train_input_file)
+        validation, _ = _read_csv_with_target_as_set(validation_input_file)
+        test, _ = _read_csv_with_target_as_set(test_input_file)
+        common_columns = [column_name for column_name in train.columns if not column_name == target_column]
+
+        merged = _merge_train_validation(train, validation, target_column, common_columns)
+
+        # now we have to convert back from sets to string to be able to write the CSV
+
+        merged[target_column + "_hard"] = merged[target_column + "_hard"].map(lambda hardset: "|".join(hardset))
+        merged[target_column + "_easy"] = merged[target_column + "_easy"].map(lambda easyset: "|".join(easyset) if isinstance(easyset, set) else "")
+
+        merged.to_csv(validation_output_file)
+        # TODO write the stats file with modified hash
+
+        raise NotImplementedError("Not finshed")
+
+
+def _merge_train_validation(train: pd.DataFrame, validation: pd.DataFrame, target_column: str, common_columns: List[str]) -> pd.DataFrame:
+    # we have to split the answer sets for validation in the original target and easy_target (the one also in train)
+    # we use a inner merge to only get the rows which are in both train and validation
+    in_common = pd.merge(train, validation, how="inner", on=common_columns, suffixes=["_train", "_validation"])
+    in_common[target_column + "_easy"] = in_common[target_column + "_train"]
+
+    # TODO remove the _hard suffix, this is not needed in the end
+    in_common[target_column + "_hard"] = in_common.apply(
+        lambda row: row[target_column + "_validation"] - (row[target_column + "_train"]),
+        axis=1
+    )
+    # get rid of the tmp columns
+    in_common.pop(target_column + "_validation")
+    in_common.pop(target_column + "_train")
+
+    # Now we merge again to find out which rows have only hard answers and were not in common at all
+    merged = pd.merge(validation, in_common, how="left", on=common_columns, suffixes=["_validation-only", None])
+    to_be_overwritten = merged[target_column + "_hard"].isnull() & merged[target_column + "_easy"].isnull()
+    merged.loc[to_be_overwritten, target_column + "_hard"] = merged.loc[to_be_overwritten, target_column]
+
+    # get rid of the tmp column
+    merged.pop(target_column)
+
+    def f(row):
+        hard_is_empty = len(row[target_column + "_hard"]) == 0
+        easy_has_stuff = len(row[target_column + "_easy"]) > 0 if isinstance(row[target_column + "_easy"], set) else False
+        result = hard_is_empty and easy_has_stuff
+        return result
+
+    # Now, we still have rows with easy targets, but no hard targets, these rows need to be removed
+    to_be_dropped = merged.apply(
+        # Note: we would shortcut the need to check for Nan in the easy column here, if there are no hard ones there will always be easy ones
+        # however, pandas & does not shortcut. the isinstance is actually checking for Nan
+        f,
+        axis=1
+    )
+    merged = merged[~to_be_dropped]
+
+    return merged
+
+
+def _read_csv_with_target_as_set(input_file: Path) -> Tuple[pd.DataFrame, str]:
+    """Read a CSV file into a pandas df. Then converts the column which contains the targets into set objects. Returns the new df and the target column name"""
+    dataset = pd.read_csv(input_file, compression="gzip")
+    target_columns = [column_name for column_name in dataset.columns if column_name.endswidth("_target")]
+    assert len(target_columns) == 1
+    target_column = target_columns[0]
+    dataset[target_column] = dataset.apply(lambda row: set(row[target_column].split("|")), axis=1)
+    return dataset, target_column
+
+
 def remove_queries(dataset: Dataset):
-    csv_location = dataset.query_csv_location()
+    csv_location = dataset.raw_query_csv_location()
     shutil.rmtree(csv_location)
 
 
