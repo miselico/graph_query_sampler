@@ -54,6 +54,9 @@ class Dataset:
     def query_csv_location(self) -> Path:
         return self.query_location() / "csv"
 
+    def query_proto_location(self) -> Path:
+        return self.query_location() / "proto"
+
     def mapping_location(self) -> Path:
         return self.location() / "mapping"
 

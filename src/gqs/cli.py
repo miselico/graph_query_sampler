@@ -5,6 +5,7 @@ from typing import Sequence
 
 import click
 from gqs import dataset_split, split_to_triple_store, sample_queries, mapping as gqs_mapping
+from gqs.conversion import convert_all, protobufBuilder
 from gqs.dataset import Dataset
 
 from ._sparql_execution import execute_sparql_to_result_silenced
@@ -179,14 +180,26 @@ def add_formula_constraints(dataset: Dataset, database_url: str):
     sample_queries.preprocess_formulas(dataset, sparql_endpoint)
 
 
-@main.command()
+@main.group()
+def sample():
+    """Sample queries from the stored triples"""
+
+
+@sample.command("create")
 @option_dataset
 @option_database_url
 @click.option("--keep-uncompressed", is_flag=True, default=False)
-def sample(dataset: Dataset, database_url: str, keep_uncompressed: bool):
-    """Create queries from the stored triples"""
+def create_sample(dataset: Dataset, database_url: str, keep_uncompressed: bool):
+    """Create queries from the stored triples, store in CSV format."""
     sparql_endpoint = dataset.graphDB_url_to_endpoint(database_url)
     sample_queries.execute_queries(dataset, sparql_endpoint, compress=not keep_uncompressed)
+
+
+@sample.command("remove")
+@option_dataset
+def remove_sample(dataset: Dataset):
+    """Delete the queries in CSV format."""
+    sample_queries.remove_queries(dataset)
 
 
 @main.group()
@@ -206,3 +219,21 @@ def create_mapping(dataset: Dataset, database_url: str):
 @option_dataset
 def remove_mapping(dataset: Dataset):
     gqs_mapping.remove_mapping(dataset)
+
+
+@main.group()
+def convert():
+    "Convert queries between forms"
+
+
+@convert.command("csv-to-proto")
+@option_dataset
+def csv_to_proto(dataset: Dataset):
+    """Convert the textual query results to index-based in protobuffer format.."""
+    assert gqs_mapping.mapping_exists(dataset), "Before converting, you have to create a mapping"
+    relmap, entmap = gqs_mapping.get_mappers(dataset)
+    convert_all(
+        source_directory=dataset.query_csv_location(),
+        target_directory=dataset.query_proto_location(),
+        builder=protobufBuilder(relmap=relmap, entmap=entmap)
+    )
