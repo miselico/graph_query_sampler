@@ -317,6 +317,21 @@ def remove_mapping(dataset: Dataset):
         dataset.mapping_location().rmdir()
 
 
+def mapping_exists(dataset: Dataset) -> bool:
+    if not dataset.mapping_location().exists():
+        return False
+    if not (dataset.relation_mapping_location().is_file() and dataset.relation_mapping_location().exists()):
+        return False
+    if not (dataset.entity_mapping_location().is_file() and dataset.entity_mapping_location().exists()):
+        return False
+    return True
+
+    # dataset.relation_mapping_location().unlink(missing_ok=True)
+    # dataset.entity_mapping_location().unlink(missing_ok=True)
+    # if dataset.mapping_location().exists():
+    #     dataset.mapping_location().rmdir()
+
+
 def get_mappers(dataset: Dataset) -> Tuple[RelationMapper, EntityMapper]:
     relmap = get_relation_mapper(dataset)
     entmap = get_entity_mapper(dataset, relmap)
@@ -325,13 +340,13 @@ def get_mappers(dataset: Dataset) -> Tuple[RelationMapper, EntityMapper]:
 
 def get_relation_mapper(dataset: Dataset) -> RelationMapper:
     with open(dataset.relation_mapping_location()) as relation_file:
-        relations = relation_file.readlines()
+        relations = [relation.strip() for relation in relation_file.readlines()]
         return RelationMapper(relations)
 
 
 def get_entity_mapper(dataset: Dataset, relmap: RelationMapper) -> EntityMapper:
     with open(dataset.entity_mapping_location()) as entity_file:
-        entities = entity_file.readlines()
+        entities = [entity.strip() for entity in entity_file.readlines()]
         return EntityMapper(entities, relmap)
 
 # def _pad_statements_(data: List[list], max_len: int) -> List[list]:
