@@ -57,7 +57,7 @@ class Dataset:
 
     def query_csv_location(self) -> Path:
         """The queries in CSV format including hard and easy answers"""
-        return self.query_location() / "raw_csv"
+        return self.query_location() / "csv"
 
     def query_proto_location(self) -> Path:
         return self.query_location() / "proto"

@@ -186,7 +186,7 @@ def execute_queries(
 
     for query_file_path in formulas_directory.rglob("*.sparql"):
         query = query_file_path.read_text()
-        new_query_hash = hashlib.md5(query.encode()).hexdigest()
+        new_query_hash = hashlib.md5(query.encode("utf8")).hexdigest()
 
         name_stem = query_file_path.stem
         # TODO: Code duplication to converter.py
@@ -298,6 +298,7 @@ def _separate_hard_and_easy_targets(raw_query_directory: Path, target_path: Path
         test_output_file = (target / "test.csv.gz")
 
         # train can just be copied directly, we do not even check the hash because this should be about as fast
+        train_output_file.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(train_input_file, train_output_file)
         train_stats["count"] = train_stats["raw-count"]
         _dump_json_to_file(target / "train_stats.json", train_stats)
@@ -308,45 +309,79 @@ def _separate_hard_and_easy_targets(raw_query_directory: Path, target_path: Path
         test, _ = _read_csv_with_target_as_set(test_input_file)
         common_columns = [column_name for column_name in train.columns if not column_name == target_column]
 
-        merged = _merge_train_validation(train, validation, target_column, common_columns)
+        # create the validation set by filtering stuff from train out
+        validation_with_easy_and_hard = _combine_train_validation_answers(train, validation, target_column, common_columns)
+        combined_hash = hashlib.md5(( train_stats["hash"] + "|" + validation_stats["hash"]).encode("utf8") ).hexdigest()
+        stats_output = target / "validation_sats.json"
+        _postprocess(validation_with_easy_and_hard, target_column, validation_output_file, validation_stats, combined_hash, stats_output)
 
-        # now we have to convert back from sets to string to be able to write the CSV
+        # We will reuse the implementation for train and validation for the test set as well.
+        # To do this, we combine train and validation in one dataframe and treat it as train and treat test as validation
+        train_validation = pd.merge(train, validation, how="outer", on=common_columns, suffixes=["_train", "_validation"])
+        # now we merge the answers
+        train_validation[target_column] = train_validation.apply(
+            lambda row:
+                (row[target_column + "_train"] if isinstance(row[target_column + "_train"], set) else set())
+                    .union(row[target_column + "_validation"] if isinstance(row[target_column + "_validation"], set) else set()),
+            axis=1
+        )
+        # remove the tmp columns
+        train_validation.pop(target_column + "_train")
+        train_validation.pop(target_column + "_validation")
+        # reuse the combine implementation, assuming identities
+        test_with_easy_and_hard = _combine_train_validation_answers(train=train_validation, validation=test, target_column=target_column, common_columns=common_columns)
+        combined_hash = hashlib.md5(( train_stats["hash"] + "|" + validation_stats["hash"] + "|" + test_stats["hash"]).encode("utf8") ).hexdigest()
+        stats_output = target / "test_stats.json"
+        _postprocess(test_with_easy_and_hard, target_column, test_output_file, test_stats, combined_hash, stats_output)
+        logger.info(f"Done converting from {source} to {target}.")
 
-        merged[target_column + "_hard"] = merged[target_column + "_hard"].map(lambda hardset: "|".join(hardset))
-        merged[target_column + "_easy"] = merged[target_column + "_easy"].map(lambda easyset: "|".join(easyset) if isinstance(easyset, set) else "")
 
-        merged.to_csv(validation_output_file)
-        # TODO write the stats file with modified hash
+def _postprocess(queries_with_easy_and_hard: pd.DataFrame, target_column: str, output_file: Path, query_stats: Any, new_hash: str, stats_output: Path):
+    # now we have to convert back from sets to string to be able to write the CSV
+    queries_with_easy_and_hard[target_column + "-hard"] = queries_with_easy_and_hard[target_column + "-hard"].map(lambda hardset: "|".join(hardset))
+    queries_with_easy_and_hard[target_column + "-easy"] = queries_with_easy_and_hard[target_column + "-easy"].map(lambda easyset: "|".join(easyset) if isinstance(easyset, set) else "")
+    queries_with_easy_and_hard.to_csv(output_file)
 
-        raise NotImplementedError("Not finshed")
+    # write the stats file with modified hash
+    query_stats["hash"] = new_hash
+    query_stats["count"] = queries_with_easy_and_hard.shape[0]
+    _dump_json_to_file(stats_output, query_stats)
 
 
-def _merge_train_validation(train: pd.DataFrame, validation: pd.DataFrame, target_column: str, common_columns: List[str]) -> pd.DataFrame:
+
+def _combine_train_validation_answers(train: pd.DataFrame, validation: pd.DataFrame, target_column: str, common_columns: List[str]) -> pd.DataFrame:
+    assert train.shape[0] > 0
+    assert validation.shape[0] > 0
+
     # we have to split the answer sets for validation in the original target and easy_target (the one also in train)
     # we use a inner merge to only get the rows which are in both train and validation
     in_common = pd.merge(train, validation, how="inner", on=common_columns, suffixes=["_train", "_validation"])
-    in_common[target_column + "_easy"] = in_common[target_column + "_train"]
+    in_common[target_column + "-easy"] = in_common[target_column + "_train"]
 
-    # TODO remove the _hard suffix, this is not needed in the end
-    in_common[target_column + "_hard"] = in_common.apply(
+    # TODO remove the -hard suffix, this is not needed in the end
+    hard_answers = in_common.apply(
         lambda row: row[target_column + "_validation"] - (row[target_column + "_train"]),
         axis=1
     )
+    if hard_answers.size > 0:
+        in_common[target_column + "-hard"] = hard_answers
+    else:
+        in_common[target_column + "-hard"] = pd.Index([])
     # get rid of the tmp columns
     in_common.pop(target_column + "_validation")
     in_common.pop(target_column + "_train")
 
     # Now we merge again to find out which rows have only hard answers and were not in common at all
     merged = pd.merge(validation, in_common, how="left", on=common_columns, suffixes=["_validation-only", None])
-    to_be_overwritten = merged[target_column + "_hard"].isnull() & merged[target_column + "_easy"].isnull()
-    merged.loc[to_be_overwritten, target_column + "_hard"] = merged.loc[to_be_overwritten, target_column]
+    to_be_overwritten = merged[target_column + "-hard"].isnull() & merged[target_column + "-easy"].isnull()
+    merged.loc[to_be_overwritten, target_column + "-hard"] = merged.loc[to_be_overwritten, target_column]
 
     # get rid of the tmp column
     merged.pop(target_column)
 
     def f(row):
-        hard_is_empty = len(row[target_column + "_hard"]) == 0
-        easy_has_stuff = len(row[target_column + "_easy"]) > 0 if isinstance(row[target_column + "_easy"], set) else False
+        hard_is_empty = len(row[target_column + "-hard"]) == 0
+        easy_has_stuff = len(row[target_column + "-easy"]) > 0 if isinstance(row[target_column + "-easy"], set) else False
         result = hard_is_empty and easy_has_stuff
         return result
 
@@ -365,16 +400,19 @@ def _merge_train_validation(train: pd.DataFrame, validation: pd.DataFrame, targe
 def _read_csv_with_target_as_set(input_file: Path) -> Tuple[pd.DataFrame, str]:
     """Read a CSV file into a pandas df. Then converts the column which contains the targets into set objects. Returns the new df and the target column name"""
     dataset = pd.read_csv(input_file, compression="gzip")
-    target_columns = [column_name for column_name in dataset.columns if column_name.endswidth("_target")]
+    target_columns = [column_name for column_name in dataset.columns if column_name.endswith("_target")]
     assert len(target_columns) == 1
     target_column = target_columns[0]
-    dataset[target_column] = dataset.apply(lambda row: set(row[target_column].split("|")), axis=1)
+    dataset[target_column] = dataset[target_column].map(
+        lambda value: set(value.split("|"))
+    )
     return dataset, target_column
 
 
 def remove_queries(dataset: Dataset):
-    csv_location = dataset.raw_query_csv_location()
-    shutil.rmtree(csv_location)
+    # we remove both the raw and corrected queries
+    shutil.rmtree(dataset.raw_query_csv_location(), ignore_errors=True)
+    shutil.rmtree(dataset.query_csv_location(), ignore_errors=True)
 
 
 subject_matcher = re.compile("s[0-9]+")
