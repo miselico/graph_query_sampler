@@ -51,7 +51,12 @@ class Dataset:
         """The location where all queries in this dataset will be stored"""
         return self.location() / "queries"
 
+    def raw_query_csv_location(self) -> Path:
+        """The queries in CSV fromat with all answers for the split"""
+        return self.query_location() / "raw_csv"
+
     def query_csv_location(self) -> Path:
+        """The queries in CSV format including hard and easy answers"""
         return self.query_location() / "csv"
 
     def query_proto_location(self) -> Path:
