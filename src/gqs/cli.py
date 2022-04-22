@@ -191,7 +191,7 @@ def sample():
 def create_sample(dataset: Dataset, database_url: str):
     """Create queries from the stored triples, store in CSV format."""
     sparql_endpoint = dataset.graphDB_url_to_endpoint(database_url)
-    sample_queries.execute_queries(dataset, sparql_endpoint)
+    sample_queries.sample_queries(dataset, sparql_endpoint)
 
 
 @sample.command("remove")

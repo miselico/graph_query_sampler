@@ -11,7 +11,8 @@ import traceback
 from collections import defaultdict
 from contextlib import ExitStack
 from pathlib import Path
-from typing import Any, DefaultDict, Dict, Iterable, List, Optional, Tuple
+from typing import (Any, DefaultDict, Dict, Generator, Iterable, List,
+                    Optional, Tuple)
 
 import pandas as pd
 from gqs.dataset import Dataset
@@ -25,14 +26,14 @@ from ._sparql_execution import (execute_csv_sparql_silenced,
 
 __all__ = [
     "preprocess_formulas",
-    "execute_queries",
+    "sample_queries",
     "remove_queries"
 ]
 
 logger = logging.getLogger(__name__)
 
 
-def pairwise_directories(source_root: Path, destination_root: Path):
+def pairwise_directories(source_root: Path, destination_root: Path) -> Generator[Tuple[Path, Path], None, None]:
     """An iterator to iterate over recursive pairs of source and target directories,
     based on directories existing in the source directory and its not neceserily existing counterpart in the destination."""
     yield (source_root, destination_root)
@@ -105,7 +106,7 @@ def _dump_json_to_file(the_path: Path, json_object: Any):
         return json.dump(json_object, the_file)
 
 
-def execute_queries(
+def sample_queries(
     dataset: Dataset,
     sparql_endpoint: str,
     sparql_endpoint_options: Optional[Dict[str, Any]] = None,
@@ -120,12 +121,16 @@ def execute_queries(
 
     * ?sN the subject of the Nth triple in the query
     * ?pN the predicate of the Nth triple
-    * ?oN the object of the Nth triple
+    * ?oN the (entity) object of the Nth triple
+    * ?olN the literal object of the Nth triple - only one of olN and oN can exist
     * ?qrNiM the Mth qualifier relation of the Nth triple
-    * ?qvNiM the Mth qualifier value of the Nth triple
+    * ?qvNiM the Mth (entity) qualifier value of the Nth triple
+    * ?qvlNiM the Mth (literal) qualifier value of the Nth triple - only one of qvNiM and qvlNiM can exist
     * ?diameter The diameter of the query
-    * ?XN_targets the answers to the query, X indicates whether this is a subject, predicate, object, qualifier relation or value, N is the index of the triple
-        * If this is a variable used in multiple triples, the it is just as normal, but with _targets appended. for example in a 2i query, the target would be ?o1_o2_targets
+    * ?XN_targets the (entity) answers to the query, X indicates whether this is a subject, predicate, object, qualifier relation or value, N is the index of the triple
+        * If this is a variable used in multiple triples, it is used as a normal one, but with _targets appended.
+        * For example in a 2i query, the target would be ?o1_o2_targets
+    * ?XN_ltargets like XN_targets but for literal answers. Only one of XN_targets and XN_ltargets can be used.
 
     Known values in the query must be their URL. The N-th variable (all indices 0 indexed!) must be indicated with "?varN".
     For the indices on the qualifiers, N refers to the triple it belongs to and M is the index of the qulifier on that triple
@@ -139,7 +144,8 @@ def execute_queries(
     s0,p0,o0_s1_var,qr0i0,qv0i0,p1,qr1i0,qv1i0,diameter,o1_targets
 
 
-    In the columns is either a URI, or multiple URIs separated by "|" for the targets
+    In the columns is either a URI, a or multiple URIs separated by "|" for the targets
+    In literal columns, there is either a literal, or multiple literals separated by "|" Note that this means literals must not contain the "|" symbol
 
     For this concrete query, with answers wd:Q4 and wd:Q6
     select ?target
@@ -152,7 +158,7 @@ def execute_queries(
 
     (note: prefixes should be expanded.)
 
-    The hierarchical structure will be preserved, but for each file in the source directory.
+    The hierarchical structure will be preserved.
 
 
     Parameters
