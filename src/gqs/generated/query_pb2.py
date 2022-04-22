@@ -13,7 +13,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0bquery.proto\"i\n\x06Triple\x12\x0f\n\x07subject\x18\x01 \x01(\r\x12\x11\n\tpredicate\x18\x02 \x01(\r\x12\x17\n\rentity_object\x18\x03 \x01(\rH\x00\x12\x18\n\x0eliteral_object\x18\x04 \x01(\tH\x00\x42\x08\n\x06object\"\x9d\x01\n\tQualifier\x12\x1a\n\x12qualifier_relation\x18\x01 \x01(\r\x12 \n\x16qualifier_entity_value\x18\x02 \x01(\rH\x00\x12!\n\x17qualifier_literal_value\x18\x03 \x01(\tH\x00\x12\x1c\n\x14\x63orresponding_triple\x18\x04 \x01(\rB\x11\n\x0fqualifier_value\"d\n\x05Query\x12\x18\n\x07triples\x18\x01 \x03(\x0b\x32\x07.Triple\x12\x1e\n\nqualifiers\x18\x02 \x03(\x0b\x32\n.Qualifier\x12\x0f\n\x07targets\x18\x03 \x03(\r\x12\x10\n\x08\x64iameter\x18\x04 \x01(\r\"$\n\tQueryData\x12\x17\n\x07queries\x18\x01 \x03(\x0b\x32\x06.Queryb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0bquery.proto\"i\n\x06Triple\x12\x0f\n\x07subject\x18\x01 \x01(\r\x12\x11\n\tpredicate\x18\x02 \x01(\r\x12\x17\n\rentity_object\x18\x03 \x01(\rH\x00\x12\x18\n\x0eliteral_object\x18\x04 \x01(\tH\x00\x42\x08\n\x06object\"\x9d\x01\n\tQualifier\x12\x1a\n\x12qualifier_relation\x18\x01 \x01(\r\x12 \n\x16qualifier_entity_value\x18\x02 \x01(\rH\x00\x12!\n\x17qualifier_literal_value\x18\x03 \x01(\tH\x00\x12\x1c\n\x14\x63orresponding_triple\x18\x04 \x01(\rB\x11\n\x0fqualifier_value\"\x7f\n\x05Query\x12\x18\n\x07triples\x18\x01 \x03(\x0b\x32\x07.Triple\x12\x1e\n\nqualifiers\x18\x02 \x03(\x0b\x32\n.Qualifier\x12\x14\n\x0c\x65\x61sy_targets\x18\x03 \x03(\r\x12\x14\n\x0chard_targets\x18\x04 \x03(\r\x12\x10\n\x08\x64iameter\x18\x05 \x01(\r\"$\n\tQueryData\x12\x17\n\x07queries\x18\x01 \x03(\x0b\x32\x06.Queryb\x06proto3')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'query_pb2', globals())
@@ -25,7 +25,7 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _QUALIFIER._serialized_start=123
   _QUALIFIER._serialized_end=280
   _QUERY._serialized_start=282
-  _QUERY._serialized_end=382
-  _QUERYDATA._serialized_start=384
-  _QUERYDATA._serialized_end=420
+  _QUERY._serialized_end=409
+  _QUERYDATA._serialized_start=411
+  _QUERYDATA._serialized_end=447
 # @@protoc_insertion_point(module_scope)

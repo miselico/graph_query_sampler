@@ -1,20 +1,21 @@
 syntax = "proto3";
 
+message EntityOrLiteral {
+    oneof object {
+        uint32 entity_object = 1;
+        string literal_object = 2;
+    }
+}
+
 message Triple{
     uint32 subject = 1;
     uint32 predicate = 2;
-    oneof object {
-        uint32 entity_object = 3;
-        string literal_object = 4;
-    }
+    EntityOrLiteral object = 3
 }
 
 message Qualifier {
     uint32 qualifier_relation = 1;
-    oneof qualifier_value {
-        uint32 qualifier_entity_value = 2;
-        string qualifier_literal_value = 3;
-    }
+    EntityOrLiteral qualifier_value = 2;
     uint32 corresponding_triple = 4;
 }
 
@@ -22,8 +23,9 @@ message Qualifier {
 message Query {
     repeated Triple triples = 1;
     repeated Qualifier qualifiers = 2;
-    repeated uint32 targets = 3;
-    uint32 diameter = 4;
+    repeated EntityOrLiteral easy_targets = 3;
+    repeated EntityOrLiteral hard_targets = 4;
+    uint32 diameter = 5;
 }
 
 message QueryData {
