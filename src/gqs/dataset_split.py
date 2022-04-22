@@ -33,7 +33,7 @@ def _count_non_comment_lines(input_file: pathlib.Path) -> int:
     return count
 
 
-def split_random(dataset: Dataset, splits: Iterable[Split], seed: int, lines: Optional[int] = None):
+def split_random(dataset: Dataset, splits: Iterable[Split], seed: int, lines: Optional[int] = None) -> None:
     validate_splits(splits)
     # The following esures all files will be closed correctly
     input_file = dataset.raw_input_file()
@@ -70,7 +70,7 @@ def split_random(dataset: Dataset, splits: Iterable[Split], seed: int, lines: Op
         assert len(randomized_splits) == 0, "The specified number of lines was bigger than the actual number"
 
 
-def split_round_robin(dataset: Dataset, splits: Iterable[Split]):
+def split_round_robin(dataset: Dataset, splits: Iterable[Split]) -> None:
     input_file = dataset.raw_input_file()
     # The following esures all files will be closed correctly
     validate_splits(splits)
@@ -98,7 +98,7 @@ def split_round_robin(dataset: Dataset, splits: Iterable[Split]):
                         break
 
 
-def validate_splits(splits: Iterable[Split]):
+def validate_splits(splits: Iterable[Split]) -> None:
     total = 0.0
     paths: Set[pathlib.Path] = set()
     for split in splits:

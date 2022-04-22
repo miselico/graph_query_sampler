@@ -3,7 +3,7 @@
 from gqs.mapping import EntityMapper, RelationMapper
 
 
-def test_entity_mapper():
+def test_entity_mapper() -> None:
     for relation_count in range(1, 50, 7):
         relations = [f"relation{j}" for j in range(relation_count)]
         relmap = RelationMapper(relations)
@@ -69,7 +69,7 @@ def test_entity_mapper():
             collected_indices.add(target_index)
 
 
-def test_relation_mapper_one_relation():
+def test_relation_mapper_one_relation() -> None:
     relmap = RelationMapper(["relation"])
     # all these assertions make assumptions regarding non-documented ordering of the indices.
     # users of the mapping must not make these assumptions
@@ -81,7 +81,7 @@ def test_relation_mapper_one_relation():
     assert relmap.reified_object_index == 3
 
 
-def test_relation_mapper_many_relations():
+def test_relation_mapper_many_relations() -> None:
     for relation_count in range(1, 1000, 7):
         relations = [f"relation{j}" for j in range(relation_count)]
         relmap = RelationMapper(relations)

@@ -28,7 +28,7 @@ class RelationMapper:
     Besides, it provides indices for inverse predicates as well as special predicates for relation variables and those used to reify stataments.
     """
 
-    def __init__(self, predicates: Iterable[str]):
+    def __init__(self, predicates: Iterable[str]) -> None:
         """Initialize the mapper."""
         # First space for the normal predicates
         self._predicate_start = 0
@@ -117,7 +117,7 @@ class EntityMapper:
     This needs is limited because also statement nodes for reification get an identifier, which starts after the variables
     """
 
-    def __init__(self, entities: Iterable[str], relation_mapper: RelationMapper):
+    def __init__(self, entities: Iterable[str], relation_mapper: RelationMapper) -> None:
         """
         This creates an EntityMapper. The ownership of the entityMapping moves to this object and will be modified.
         """
@@ -229,7 +229,7 @@ class EntityMapper:
         return self.target_index
 
     @staticmethod
-    def get_target_entity_name():
+    def get_target_entity_name() -> str:
         """Return the name used for the target entity."""
         return "TARGET"
 
@@ -278,8 +278,8 @@ class EntityMapper:
     #     return self._normal_entity_end + 3  # 3 = target/variable/reification blank node
 
 
-def create_mapping(dataset: Dataset, sparql_endpoint: str, sparql_endpoint_options: Dict[str, Any]):
-    def query_entities_to_file(query, file: pathlib.Path, var: str):
+def create_mapping(dataset: Dataset, sparql_endpoint: str, sparql_endpoint_options: Dict[str, Any]) -> None:
+    def query_entities_to_file(query: str, file: pathlib.Path, var: str) -> None:
         entities = []
         for result in execute_sparql_to_result_silenced(query, sparql_endpoint, sparql_endpoint_options):
             entities.append(str(result.get(var)))
@@ -310,7 +310,7 @@ def create_mapping(dataset: Dataset, sparql_endpoint: str, sparql_endpoint_optio
     query_entities_to_file(relations_query, dataset.relation_mapping_location(), "relation")
 
 
-def remove_mapping(dataset: Dataset):
+def remove_mapping(dataset: Dataset) -> None:
     dataset.relation_mapping_location().unlink(missing_ok=True)
     dataset.entity_mapping_location().unlink(missing_ok=True)
     if dataset.mapping_location().exists():
@@ -376,7 +376,7 @@ def get_entity_mapper(dataset: Dataset, relmap: RelationMapper) -> EntityMapper:
 #     """Sort mapping pairs by a numeric string key."""
 #     as_pairs = list(the_map.items())
 
-#     def get_key_as_number(pair):
+#     def get_key_as_number(pair) -> None:
 #         if pair[0] == "__na__":
 #             return 0
 #         return int(pair[0][1:])
@@ -499,7 +499,7 @@ def get_entity_mapper(dataset: Dataset, relmap: RelationMapper) -> EntityMapper:
 #     return entoid, reltoid
 
 
-# def create_mapping():
+# def create_mapping() -> None:
 #     """Running this file creates the mappings and stores them."""
 #     # TODO it appears we can implement this in place rather easily. Butfor now just calling this.
 

@@ -16,7 +16,7 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 
-def create_graphdb_repository(repositoryID: str, graphdb_url: str):
+def create_graphdb_repository(repositoryID: str, graphdb_url: str) -> None:
     url = f"{graphdb_url}/rest/repositories"
     files = {'config': ('config.ttl', f'''
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
@@ -63,7 +63,7 @@ def create_graphdb_repository(repositoryID: str, graphdb_url: str):
         raise Exception(f"Creating the repository failed. does it alreade exist? Message: {str(response.content)}")
 
 
-def store_triples(dataset: Dataset, data: pathlib.Path, graphname: str, graphdb_url: str):
+def store_triples(dataset: Dataset, data: pathlib.Path, graphname: str, graphdb_url: str) -> None:
     repositoryID = dataset.graphDB_repositoryID()
     url = f"{graphdb_url}/rest/data/import/upload/{repositoryID}/file"
 
@@ -118,7 +118,7 @@ def store_triples(dataset: Dataset, data: pathlib.Path, graphname: str, graphdb_
                 raise Exception("Unknown upoad status")
 
 
-def remove_graphdb_repository(dataset: Dataset, graphdb_url: str):
+def remove_graphdb_repository(dataset: Dataset, graphdb_url: str) -> None:
     repositoryID = dataset.graphDB_repositoryID()
     url = f"{graphdb_url}/rest/repositories/{repositoryID}"
     print(url)

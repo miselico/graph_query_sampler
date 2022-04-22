@@ -4,10 +4,10 @@
 import pandas as pd
 from gqs.sample_queries import _combine_train_validation_answers
 
-from pandas.util.testing import assert_frame_equal
+from pandas.testing import assert_frame_equal
 
 
-def test_merge_train_validation():
+def test_merge_train_validation() -> None:
     train = pd.DataFrame({
         "s0": ["a", "b", "c", "q"],
         "p0": ["d", "e", "f", "r"],
@@ -35,7 +35,7 @@ def test_merge_train_validation():
 
 
 # The current implementation cannot work with empty frames, it raises an exception on these inputs.
-# def test_merge_train_empty_validation():
+# def test_merge_train_empty_validation() -> None:
 #     train = pd.DataFrame({
 #         "s0": ["a", "b", "c", "q"],
 #         "p0": ["d", "e", "f", "r"],

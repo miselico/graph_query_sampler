@@ -12,7 +12,7 @@ def valid_name(name: str) -> Tuple[bool, str]:
 
 
 class Dataset:
-    def __init__(self, dataset_name: str):
+    def __init__(self, dataset_name: str) -> None:
         valid, expl = valid_name(dataset_name)
         assert valid, expl
         self.name = dataset_name

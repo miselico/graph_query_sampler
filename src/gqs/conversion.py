@@ -39,40 +39,40 @@ T = TypeVar('T')
 class BinaryFormBuilder(Generic[T], ABC):
     @classmethod
     @abstractmethod
-    def __init__(self, numberOfTriples, numberOfQualifiers):
+    def __init__(self, numberOfTriples: int, numberOfQualifiers: int) -> None:
         pass
 
     @abstractmethod
-    def set_subject(self, index: int, entity: str):
+    def set_subject(self, index: int, entity: str) -> None:
         pass
 
     @abstractmethod
-    def set_entity_object(self, index: int, entity: str):
+    def set_entity_object(self, index: int, entity: str) -> None:
         pass
 
     @abstractmethod
-    def set_literal_object(self, index: int, entity: str):
+    def set_literal_object(self, index: int, entity: str) -> None:
         pass
 
     @abstractmethod
-    def set_predicate(self, index: int, predicate: str):
+    def set_predicate(self, index: int, predicate: str) -> None:
         pass
 
-    def set_subject_predicate_object_entity(self, tripleIndex: int, subject: str, predicate: str, obj: str):
+    def set_subject_predicate_object_entity(self, tripleIndex: int, subject: str, predicate: str, obj: str) -> None:
         """Helper function to set subject, predicate and object at once"""
         self.set_subject(tripleIndex, subject)
         self.set_predicate(tripleIndex, predicate)
         self.set_entity_object(tripleIndex, obj)
 
     @abstractmethod
-    def set_qualifier_rel(self, tripleIndex: int, index: int, predicate: str):
+    def set_qualifier_rel(self, tripleIndex: int, index: int, predicate: str) -> None:
         pass
 
     @abstractmethod
-    def set_qualifier_entity_val(self, tripleIndex: int, index: int, value: str):
+    def set_qualifier_entity_val(self, tripleIndex: int, index: int, value: str) -> None:
         pass
 
-    def set_qualifier_rel_entity_val(self, tripleIndex: int, qualifier_index: int, predicate: str, value: str):
+    def set_qualifier_rel_entity_val(self, tripleIndex: int, qualifier_index: int, predicate: str, value: str) -> None:
         """
         Set the relation `predicate` and value `value` for the qualifier attached to triple with index `tripleIndex` and qualifier index `qualifier_index`
         """
@@ -80,15 +80,15 @@ class BinaryFormBuilder(Generic[T], ABC):
         self.set_qualifier_entity_val(tripleIndex, qualifier_index, value)
 
     @abstractmethod
-    def set_qualifier_literal_val(self, tripleIndex: int, index: int, value: str):
+    def set_qualifier_literal_val(self, tripleIndex: int, index: int, value: str) -> None:
         pass
 
     @abstractmethod
-    def set_targets(self, values: Iterable[str]):
+    def set_targets(self, values: Iterable[str]) -> None:
         pass
 
     @abstractmethod
-    def set_diameter(self, diameter: int):
+    def set_diameter(self, diameter: int) -> None:
         pass
 
     @abstractmethod
@@ -101,14 +101,14 @@ class BinaryFormBuilder(Generic[T], ABC):
         raise Exception("Each class deriving must implement its own version fo this.s")
 
     @abstractmethod
-    def store(self, collection: Iterable[T], absolute_target_path: Path):
+    def store(self, collection: Iterable[T], absolute_target_path: Path) -> None:
         pass
 
 
 class ShapeError(RuntimeError):
     """An error raised if the shape does not match."""
 
-    def __init__(self, actual_shape: Sequence[int], expected_shape: Sequence[Optional[int]]):
+    def __init__(self, actual_shape: Sequence[int], expected_shape: Sequence[Optional[int]]) -> None:
         """
         Initialize the error.
 
@@ -162,7 +162,7 @@ class QueryData:
     # This is to prevent accidentally calling withInverses twice
     inverses_already_set: bool = False
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert _check_shape(tensor=self.edge_index, expected_shape=(2, None))
         assert _check_shape(tensor=self.edge_type, expected_shape=(None,))
         assert _check_shape(tensor=self.qualifier_index, expected_shape=(3, None))
@@ -234,7 +234,7 @@ class QueryData:
                          new_query_diameter, inverses_already_set=True)
 
 
-def convert_one(absolute_source_path: Path, absolute_target_path: Path, builderClass: Type[BinaryFormBuilder]) -> Mapping[str, str]:
+def convert_one(absolute_source_path: Path, absolute_target_path: Path, builderClass: Type[BinaryFormBuilder[T]]) -> Mapping[str, str]:
     """Convert a file of textual queries to binary format."""
     converted = []
 
@@ -317,8 +317,8 @@ def convert_one(absolute_source_path: Path, absolute_target_path: Path, builderC
 def convert_all(
     source_directory: Path,
     target_directory: Path,
-    builder: Type[BinaryFormBuilder],
-    filter: Callable[[str], bool] = None
+    builder: Type[BinaryFormBuilder[T]],
+    filter: Optional[Callable[[str], bool]] = None
 ) -> None:
     """Convert all textual queries to binary format."""
     if not list(source_directory.rglob("*.csv.gz")):
@@ -400,7 +400,7 @@ def tensorBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[BinaryFo
 
         targets: Optional[LongTensor]
 
-        def __init__(self, number_of_triples: int, number_of_qualifiers: int):
+        def __init__(self, number_of_triples: int, number_of_qualifiers: int) -> None:
             """
             Initialize the builder.
             """
@@ -423,37 +423,37 @@ def tensorBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[BinaryFo
             self.targets = None
             self.qual_mapping_valid = True
 
-        def set_subject(self, index: int, entity: str):
+        def set_subject(self, index: int, entity: str) -> None:
             entity_index = entmap.lookup(entity)
             # set normal edge
             self.set_subject_ID(index, entity_index)
 
-        def set_subject_ID(self, index: int, entity_index: int):
+        def set_subject_ID(self, index: int, entity_index: int) -> None:
             assert self.edge_index[0, index] == -1
             self.edge_index[0, index] = entity_index
 
-        def set_entity_object(self, index: int, entity: str):
+        def set_entity_object(self, index: int, entity: str) -> None:
             entity_index = entmap.lookup(entity)
             # set normal edge
             self.set_object_ID(index, entity_index)
 
-        def set_literal_object(self, index: int, entity: str):
+        def set_literal_object(self, index: int, entity: str) -> None:
             raise NotImplementedError("Tensor builder does not support literals, use protocol buffers.")
 
-        def set_object_ID(self, index: int, entity_index: int):
+        def set_object_ID(self, index: int, entity_index: int) -> None:
             assert self.edge_index[1, index] == -1
             self.edge_index[1, index] = entity_index
 
-        def set_predicate(self, index: int, predicate: str):
+        def set_predicate(self, index: int, predicate: str) -> None:
             # set normal edge
             predicate_index = relmap.lookup(predicate)
             self.set_predicate_ID(index, predicate_index)
 
-        def set_predicate_ID(self, index: int, predicate_index: int):
+        def set_predicate_ID(self, index: int, predicate_index: int) -> None:
             assert self.edge_type[index] == -1
             self.edge_type[index] = predicate_index
 
-        def set_subject_predicate_object_ID(self, triple_index, subject, predicate, object):
+        def set_subject_predicate_object_ID(self, triple_index: int, subject: int, predicate: int, object: int) -> None:
             self.set_subject_ID(triple_index, subject)
             self.set_predicate_ID(triple_index, predicate)
             self.set_object_ID(triple_index, object)
@@ -464,7 +464,7 @@ def tensorBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[BinaryFo
             self.qualifiers[0, qualifier_index] = predicate_index
             self.qualifiers[2, qualifier_index] = triple_index
 
-        def set_qualifier_rel_ID(self, qualifier_index, predicateIndex, tripleIndex):
+        def set_qualifier_rel_ID(self, qualifier_index: int, predicateIndex: int, tripleIndex: int) -> None:
             """
             WARNING : if you use this method, you can no longer use the normal set_qualifier methods because
             this builder no longer has track of the indices
@@ -478,10 +478,10 @@ def tensorBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[BinaryFo
             # set forward
             self.qualifiers[1, qualifier_index] = value_index
 
-        def set_qualifier_literal_val(self, tripleIndex: int, index: int, value: str):
-            raise NotImplementedError("Tensorbuilder does nto support literal values, use protocol buffers.")
+        def set_qualifier_literal_val(self, tripleIndex: int, index: int, value: str) -> None:
+            raise NotImplementedError("Tensorbuilder does not support literal values, use protocol buffers.")
 
-        def set_qualifier_val_ID(self, qualifier_index, value_index, tripleIndex):
+        def set_qualifier_val_ID(self, qualifier_index: int, value_index: int, tripleIndex: int) -> None:
             """
             .. warning ::
                 if you use this method, you can no longer use the normal set_qualifier methods because
@@ -489,18 +489,19 @@ def tensorBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[BinaryFo
             """
             self.qual_mapping_valid = False
             self.qualifiers[1, qualifier_index] = value_index
+            # note: tripleIndex is not set. We assume it is set in set_qualifier_rel_ID, eithe before or after this call.
 
-        def set_targets(self, values: Iterable[str]):
+        def set_targets(self, values: Iterable[str]) -> None:
             assert self.targets is None, "the list of targets can only be set once. If it is needed to create this incrementally, this implementations can be changed to first collect and only create the tensor in the final build."
             assert len(list(values)) == len(set(values)), f"Values must be a set got {values}"
             mapped = [entmap.lookup(value) for value in values]
             self.targets = torch.as_tensor(mapped, dtype=torch.long)
 
-        def set_targets_ID(self, mapped: Iterable[int]):
+        def set_targets_ID(self, mapped: Iterable[int]) -> None:
             assert len(list(mapped)) == len(set(mapped))
             self.targets = torch.as_tensor(data=mapped, dtype=torch.long)
 
-        def set_diameter(self, diameter: int):
+        def set_diameter(self, diameter: int) -> None:
             assert self.diameter == -1, "Setting the diameter twice is likely wrong"
             assert diameter <= self.number_of_triples, "the diameter of the query can never be larger than the number of triples"
             self.diameter = diameter
@@ -518,16 +519,16 @@ def tensorBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[BinaryFo
         def get_file_extension() -> str:
             return ".pickle"
 
-        def store(self, collection: Iterable[QueryData], absolute_target_path: Path):
+        def store(self, collection: Iterable[QueryData], absolute_target_path: Path) -> None:
             torch.save(collection, absolute_target_path, pickle_module=dill, pickle_protocol=dill.HIGHEST_PROTOCOL)
     return TensorBuilder
 
 
 def protobufBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[BinaryFormBuilder[QueryData]]:
 
-    class ProtobufBuilder(BinaryFormBuilder[pb_Query]):  # type: ignore
+    class ProtobufBuilder(BinaryFormBuilder[pb_Query]):
 
-        def __init__(self, numberOfTriples, numberOfQualifiers):
+        def __init__(self, numberOfTriples: int, numberOfQualifiers: int) -> None:
             """
             Create
             """
@@ -540,39 +541,41 @@ def protobufBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[Binary
                 self.query.qualifiers.append(pb_Qualifier())
             self._is_qual_set = [[False, False] for _ in range(numberOfQualifiers)]
             self.query.diameter = 0
+
+            # TODO the following comment was left here, but the variable is not used anywhere. Check whether it is needed.
             # we need to keep track which qualifier we are putting where.
             # This maps from a tuple (tripleIndex, index), where tripleIndex the index of the triple and index the rank of the qualifier,
             # to the index of the forward edge qaulifier in self.quals. The reverse must be put at the offset numberOfQualifiers
-            self.qual_mapping = {}
+            # self.qual_mapping = {}
 
-        def set_subject(self, index: int, entity: str):
+        def set_subject(self, index: int, entity: str) -> None:
             assert not self._is_triple_set[index][0], f"The subject for triple with index {index} has already been set"
             entity_index = entmap.lookup(entity)
             # set normal edge
             self.query.triples[index].subject = entity_index
             self._is_triple_set[index][0] = True
 
-        def set_entity_object(self, index: int, entity: str):
+        def set_entity_object(self, index: int, entity: str) -> None:
             assert not self._is_triple_set[index][2], f"The object for triple with index {index} has already been set"
             entity_index = entmap.lookup(entity)
             # we can be sure that the oneof has not been set because of the assert at the top of this method
             self.query.triples[index].entity_object = entity_index
             self._is_triple_set[index][2] = True
 
-        def set_literal_object(self, index: int, literal_value: str):
+        def set_literal_object(self, index: int, literal_value: str) -> None:
             assert not self._is_triple_set[index][2], f"The object for triple with index {index} has already been set"
             # we can be sure that the oneof has not been set because of the assert at the top of this method
             self.query.triples[index].literal_object = literal_value
             self._is_triple_set[index][2] = True
 
-        def set_predicate(self, index: int, predicate: str):
+        def set_predicate(self, index: int, predicate: str) -> None:
             assert not self._is_triple_set[index][1], f"The predicate for triple with index {index} has already been set"
             # set normal edge
             predicate_index = relmap.lookup(predicate)
             self.query.triples[index].predicate = predicate_index
             self._is_triple_set[index][1] = True
 
-        def set_qualifier_rel(self, tripleIndex: int, qualifier_index: int, predicate: str):
+        def set_qualifier_rel(self, tripleIndex: int, qualifier_index: int, predicate: str) -> None:
             assert not self._is_qual_set[qualifier_index][0], f"The relation for qualifier with index {qualifier_index} has already been set"
             # set forward
             predicateIndex = relmap.lookup(predicate)
@@ -580,31 +583,31 @@ def protobufBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[Binary
             self.query.qualifiers[qualifier_index].corresponding_triple = tripleIndex
             self._is_qual_set[qualifier_index][0] = True
 
-        def set_qualifier_entity_val(self, tripleIndex: int, qualifier_index: int, value: str):
+        def set_qualifier_entity_val(self, tripleIndex: int, qualifier_index: int, value: str) -> None:
             assert not self._is_qual_set[qualifier_index][1], f"The value for qualifier with index {qualifier_index} has already been set"
             valueIndex = entmap.lookup(value)
             # we can be sure that the oneof has not been set because of the assert at the top of this method
             self.query.qualifiers[qualifier_index].qualifier_entity_value = valueIndex
             self._is_qual_set[qualifier_index][1] = True
 
-        def set_qualifier_literal_val(self, tripleIndex: int, qualifier_index: int, value: str):
+        def set_qualifier_literal_val(self, tripleIndex: int, qualifier_index: int, value: str) -> None:
             assert not self._is_qual_set[qualifier_index][1], f"The value for qualifier with index {qualifier_index} has already been set"
             # we can be sure that the oneof has not been set because of the assert at the top of this method
             self.query.qualifiers[qualifier_index].qualifier_literal_value = value
             self._is_qual_set[qualifier_index][1] = True
 
-        def set_targets(self, values: Iterable[str]):
+        def set_targets(self, values: Iterable[str]) -> None:
             assert len(self.query.targets) == 0, \
                 "the list of targets can only be set once. If it is needed to create this incrementally, this implementations can be changed to first collect and only create the tensor in the final build."
             assert len(list(values)) == len(set(values)), f"Values must be a set, got {values}"
             mapped = [entmap.lookup(value) for value in values]
             self.query.targets.extend(mapped)
 
-        def set_diameter(self, diameter: int):
+        def set_diameter(self, diameter: int) -> None:
             assert self.query.diameter == 0, "Setting the diameter twice is likely wrong"
             self.query.diameter = diameter
 
-        def build(self) -> pb_Query:  # type: ignore
+        def build(self) -> pb_Query:
             # checking that everything is filled
             for parts in self._is_triple_set:
                 assert all(parts)
@@ -617,7 +620,7 @@ def protobufBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[Binary
         def get_file_extension() -> str:
             return ".proto"
 
-        def store(self, collection: Iterable[pb_Query], absolute_target_path: Path):  # type: ignore
+        def store(self, collection: Iterable[pb_Query], absolute_target_path: Path) -> None:
             query_data = pb_QueryData()
             query_data.queries.extend(collection)
             with open(absolute_target_path, "wb") as output_file:
@@ -639,48 +642,48 @@ def protobufBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[Binary
 #     object: str
 
 
-# def StrippedSPARQLResultBuilder(sparql_endpoint=None, sparql_endpoint_options=None):
+# def StrippedSPARQLResultBuilder(sparql_endpoint=None, sparql_endpoint_options=None) -> None:
 #     sparql_endpoint = sparql_endpoint or default_sparql_endpoint_address
 #     sparql_endpoint_options = sparql_endpoint_options or default_sparql_endpoint_options
 
 #     class StrippedSPARQLResultBuilderClass(BinaryFormBuilder[str]):  # type: ignore
-#         def __init__(self, numberOfTriples, numberOfQualifiers):
+#         def __init__(self, numberOfTriples, numberOfQualifiers) -> None:
 
 #             self.triples = [Triple(None, None, None) for _ in range(numberOfTriples)]
 
-#         def set_subject(self, index: int, entity: str):
+#         def set_subject(self, index: int, entity: str) -> None:
 #             self.triples[index].subject = entity
 
-#         def set_object(self, index: int, entity: str):
+#         def set_object(self, index: int, entity: str) -> None:
 #             self.triples[index].object = entity
 
-#         def set_predicate(self, index: int, predicate: str):
+#         def set_predicate(self, index: int, predicate: str) -> None:
 #             self.triples[index].predicate = predicate
 
-#         def set_qualifier_rel(self, tripleIndex: int, index: int, predicate: str):
+#         def set_qualifier_rel(self, tripleIndex: int, index: int, predicate: str) -> None:
 #             """These get intentionally ignored in this converter"""
 #             pass
 
-#         def set_qualifier_val(self, tripleIndex: int, index: int, value: str):
+#         def set_qualifier_val(self, tripleIndex: int, index: int, value: str) -> None:
 #             """These get intentionally ignored in this converter"""
 #             pass
 
-#         def set_targets(self, values: Iterable[str]):
+#         def set_targets(self, values: Iterable[str]) -> None:
 #             """These get intentionally ignored in this converter"""
 #             pass
 
-#         def set_diameter(self, diameter: int):
+#         def set_diameter(self, diameter: int) -> None:
 #             """These get intentionally ignored in this converter"""
 #             pass
 
 #         @staticmethod
-#         def convertPossibleTarget(value: str):
+#         def convertPossibleTarget(value: str) -> None:
 #             if value == get_entity_mapper().get_target_entity_name():
 #                 return "?target"
 #             return value
 
 #         @staticmethod
-#         def convertPossibleEntity(value: str):
+#         def convertPossibleEntity(value: str) -> None:
 #             if value.startswith("?"):
 #                 return value
 #             return f"<{value}>"
@@ -701,7 +704,7 @@ def protobufBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[Binary
 #             """Get the extension to be used for files stored with the store method. Each deriving class must implement its own static method."""
 #             return ".txt"
 
-#         def store(self, collection: Iterable[pb_Query], absolute_target_path: Path):  # type: ignore
+#         def store(self, collection: Iterable[pb_Query], absolute_target_path: Path) -> None:  # type: ignore
 #             triple_store = SPARQLStore(sparql_endpoint, returnFormat="csv", method="POST", **sparql_endpoint_options)  # headers={}
 #             global_logger = logging.getLogger()
 #             original_level = global_logger.getEffectiveLevel()

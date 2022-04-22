@@ -46,7 +46,7 @@ def pairwise_directories(source_root: Path, destination_root: Path) -> Generator
                 yield (child_source, child_dest)
 
 
-def preprocess_formulas(dataset: Dataset, sparql_endpoint: str, sparql_endpoint_options: Optional[Dict[str, Any]] = None):
+def preprocess_formulas(dataset: Dataset, sparql_endpoint: str, sparql_endpoint_options: Optional[Dict[str, Any]] = None) -> None:
     formula_source: Path = dataset.raw_formulas_location()
     formula_target: Path = dataset.formulas_location()
     sparql_endpoint_options = sparql_endpoint_options or {}
@@ -58,7 +58,7 @@ def preprocess_formulas(dataset: Dataset, sparql_endpoint: str, sparql_endpoint_
         # every folder with formulas must have its own config file
         configuration = _load_json_from_file(source / "config.json")
         # we keep a map from the variable names to the entities which are restricted
-        excluded_entities: DefaultDict[str, set] = defaultdict(set)
+        excluded_entities: DefaultDict[str, set[str]] = defaultdict(set)
         for restriction in configuration["restrictions"]:
             if restriction["type"] == "max_indegree":
                 query = '''
@@ -101,7 +101,7 @@ def _load_json_from_file(the_path: Path) -> Any:
         return json.load(the_file)
 
 
-def _dump_json_to_file(the_path: Path, json_object: Any):
+def _dump_json_to_file(the_path: Path, json_object: Any) -> None:
     with open(the_path, "wt") as the_file:
         return json.dump(json_object, the_file)
 
@@ -263,7 +263,7 @@ def _execute_one_query(query: str, destination_path: Path, sparql_endpoint: str,
     assert result.vars is not None, "No variables for formula query"
     vars: List[Variable] = result.vars
 
-    fieldnames = [var.toPython()[1:] for var in vars]
+    fieldnames: List[str] = [var.toPython()[1:] for var in vars]  # type: ignore
     assert_query_validity(fieldnames)
     all_queries = list(result)
     query_count = len(all_queries)
@@ -280,7 +280,7 @@ def _execute_one_query(query: str, destination_path: Path, sparql_endpoint: str,
     return query_count
 
 
-def _separate_hard_and_easy_targets(raw_query_directory: Path, target_path: Path):
+def _separate_hard_and_easy_targets(raw_query_directory: Path, target_path: Path) -> None:
     for (source, target) in pairwise_directories(raw_query_directory, target_path):
         train_input_file = (source / "train.csv.gz")
         validation_input_file = (source / "validation.csv.gz")
@@ -342,14 +342,14 @@ def _separate_hard_and_easy_targets(raw_query_directory: Path, target_path: Path
         logger.info(f"Done converting from {source} to {target}.")
 
 
-def _write_dataframe_to_compressed_csv(dataframe: pd.DataFrame, file_without_gz: Path):
+def _write_dataframe_to_compressed_csv(dataframe: pd.DataFrame, file_without_gz: Path) -> None:
     name = file_without_gz.name
     with_gz = name + ".gz"
     file_with_gz = file_without_gz.parent / with_gz
     dataframe.to_csv(file_with_gz, compression="gzip")
 
 
-def _postprocess(queries_with_easy_and_hard: pd.DataFrame, target_column: str, output_file: Path, query_stats: Any, new_hash: str, stats_output: Path):
+def _postprocess(queries_with_easy_and_hard: pd.DataFrame, target_column: str, output_file: Path, query_stats: Any, new_hash: str, stats_output: Path) -> None:
     # now we have to convert back from sets to string to be able to write the CSV
     _deterministically_convert_set_column_to_bar_separated(queries_with_easy_and_hard, target_column + "-hard", False)
     _deterministically_convert_set_column_to_bar_separated(queries_with_easy_and_hard, target_column + "-easy", True)
@@ -362,7 +362,7 @@ def _postprocess(queries_with_easy_and_hard: pd.DataFrame, target_column: str, o
     _dump_json_to_file(stats_output, query_stats)
 
 
-def _deterministically_convert_set_column_to_bar_separated(frame: pd.DataFrame, column_name: str, nan_to_empty: bool):
+def _deterministically_convert_set_column_to_bar_separated(frame: pd.DataFrame, column_name: str, nan_to_empty: bool) -> None:
     if not nan_to_empty:
         frame[column_name] = frame[column_name].map(lambda the_set: "|".join(sorted(the_set)))
     else:
@@ -399,7 +399,7 @@ def _combine_train_validation_answers(train: pd.DataFrame, validation: pd.DataFr
     # get rid of the tmp column
     merged.pop(target_column)
 
-    def f(row):
+    def f(row: pd.Series) -> bool:
         hard_is_empty = len(row[target_column + "-hard"]) == 0
         easy_has_stuff = len(row[target_column + "-easy"]) > 0 if isinstance(row[target_column + "-easy"], set) else False
         result = hard_is_empty and easy_has_stuff
@@ -435,7 +435,7 @@ def _read_csv_with_target_as_set(input_file: Path) -> Tuple[pd.DataFrame, str]:
     return dataset, target_column
 
 
-def remove_queries(dataset: Dataset):
+def remove_queries(dataset: Dataset) -> None:
     # we remove both the raw and corrected queries
     shutil.rmtree(dataset.raw_query_csv_location(), ignore_errors=True)
     shutil.rmtree(dataset.query_csv_location(), ignore_errors=True)

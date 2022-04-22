@@ -14,7 +14,7 @@ logger = logging.getLogger(__file__)
 
 
 @click.group(context_settings={'show_default': True})
-def main():
+def main() -> None:
     """The main entry point."""
 
 
@@ -49,7 +49,7 @@ option_seed = click.option(
 @main.command(name="init", help="Initialize the datset directory")
 @click.option('--input', type=pathlib.Path, help='The original data file in n-triples format, lines starting with # are ignored', required=True)
 @option_dataset
-def init(input: pathlib.Path, dataset: Dataset):
+def init(input: pathlib.Path, dataset: Dataset) -> None:
     # create the dataset folder
     if dataset.location().exists():
         raise Exception(f"The directory for {dataset} already exists ({dataset.location()}), remove it first")
@@ -62,7 +62,7 @@ def init(input: pathlib.Path, dataset: Dataset):
 
 
 @main.group()
-def split():
+def split() -> None:
     """Methods to split the original graph into a training, validation and test set"""
 
 
@@ -81,7 +81,7 @@ def _split_common(dataset: Dataset, train_fraction: float, validation_fraction: 
 @click.option('--validation-fraction', type=float, help='fraction of the triples to be put into the validation set', default=0.10)
 @click.option('--test-fraction', type=float, help='fraction of the triples to be put into the test set', default=0.20)
 @click.option('--triple-count', type=int, help="The number of triples in the file. Providing this speeds up the process, butthe count must be exact.", default=None)
-def split_random(dataset: Dataset, seed: int, train_fraction: float, validation_fraction: float, test_fraction: float, triple_count: int):
+def split_random(dataset: Dataset, seed: int, train_fraction: float, validation_fraction: float, test_fraction: float, triple_count: int) -> None:
     splits = _split_common(dataset, train_fraction, validation_fraction, test_fraction)
     dataset_split.split_random(dataset, splits, seed, triple_count)
 
@@ -91,14 +91,14 @@ def split_random(dataset: Dataset, seed: int, train_fraction: float, validation_
 @click.option('--train-fraction', type=float, help='fraction of the triples to be put into the training set', default=0.70)
 @click.option('--validation-fraction', type=float, help='fraction of the triples to be put into the validation set', default=0.10)
 @click.option('--test-fraction', type=float, help='fraction of the triples to be put into the test set', default=0.20)
-def split_round_robin(dataset: Dataset, train_fraction: float, validation_fraction: float, test_fraction: float):
+def split_round_robin(dataset: Dataset, train_fraction: float, validation_fraction: float, test_fraction: float) -> None:
     splits = _split_common(dataset, train_fraction, validation_fraction, test_fraction)
     dataset_split.split_round_robin(dataset, splits)
 
 
 @split.command(name="remove", help="Remove the split files for the given dataset")
 @option_dataset
-def remove_split(dataset: Dataset):
+def remove_split(dataset: Dataset) -> None:
     for the_split in [dataset.train_split_location(), dataset.validation_split_location(), dataset.test_split_location()]:
         if the_split.exists():
             print(f"Removing {the_split.absolute()}")
@@ -108,7 +108,7 @@ def remove_split(dataset: Dataset):
 
 
 @main.group()
-def store():
+def store() -> None:
     "Put the datset splits into a triple store"
 
 
@@ -121,7 +121,7 @@ option_database_url = click.option(
      The repositoryID will be equal to the dataset name, the named graphs will be split:test, split:train, split:validation, split:train-validation, and split:all''')
 @option_dataset
 @option_database_url
-def store_graphdb(dataset: Dataset, database_url: str):
+def store_graphdb(dataset: Dataset, database_url: str) -> None:
     for split in [dataset.train_split_location(), dataset.validation_split_location(), dataset.test_split_location()]:
         assert split.exists(), f"The split {split} could not be found, not starting"
 
@@ -155,12 +155,12 @@ def store_graphdb(dataset: Dataset, database_url: str):
 @store.command(name="clear-graphdb", help="Remove the specified dataset from graphDB. Warning: all data in the dataset will be lost.")
 @option_database_url
 @option_dataset
-def clear_database(dataset: Dataset, database_url: str):
+def clear_database(dataset: Dataset, database_url: str) -> None:
     split_to_triple_store.remove_graphdb_repository(dataset, database_url)
 
 
 @main.group()
-def formulas():
+def formulas() -> None:
     """Configure the formulas for the sampling. This includes copying suitable ones to the dataset directory, manually adding and removing what is needed.
          Then manually editing the config files as nessesary. Finally preprocessing the queries to include the constraints."""
 
@@ -168,27 +168,27 @@ def formulas():
 @formulas.command(name="copy", help="Copy raw formulas to the dataset directory. These can then be changed.")
 @option_dataset
 @click.option("--formulas", help="The directory with raw formulas to copy to this dataset", type=pathlib.Path, required=True)
-def copy_formulas(dataset: Dataset, formulas: pathlib.Path):
+def copy_formulas(dataset: Dataset, formulas: pathlib.Path) -> None:
     shutil.copytree(formulas, dataset.raw_formulas_location())
 
 
 @formulas.command(name="add-constraints", help="Preprocess the formulas to add data specific restrictions")
 @option_dataset
 @option_database_url
-def add_formula_constraints(dataset: Dataset, database_url: str):
+def add_formula_constraints(dataset: Dataset, database_url: str) -> None:
     sparql_endpoint = dataset.graphDB_url_to_endpoint(database_url)
     sample_queries.preprocess_formulas(dataset, sparql_endpoint)
 
 
 @main.group()
-def sample():
+def sample() -> None:
     """Sample queries from the stored triples"""
 
 
 @sample.command("create")
 @option_dataset
 @option_database_url
-def create_sample(dataset: Dataset, database_url: str):
+def create_sample(dataset: Dataset, database_url: str) -> None:
     """Create queries from the stored triples, store in CSV format."""
     sparql_endpoint = dataset.graphDB_url_to_endpoint(database_url)
     sample_queries.sample_queries(dataset, sparql_endpoint)
@@ -196,38 +196,38 @@ def create_sample(dataset: Dataset, database_url: str):
 
 @sample.command("remove")
 @option_dataset
-def remove_sample(dataset: Dataset):
+def remove_sample(dataset: Dataset) -> None:
     """Delete the queries in CSV format."""
     sample_queries.remove_queries(dataset)
 
 
 @main.group()
-def mapping():
+def mapping() -> None:
     """Manage numeric indices for identifiers used in the dataset. these are requird for converting queries into tensor forms"""
 
 
 @mapping.command("create")
 @option_dataset
 @option_database_url
-def create_mapping(dataset: Dataset, database_url: str):
+def create_mapping(dataset: Dataset, database_url: str) -> None:
     sparql_endpoint = dataset.graphDB_url_to_endpoint(database_url)
     gqs_mapping.create_mapping(dataset, sparql_endpoint, {})
 
 
 @mapping.command("remove")
 @option_dataset
-def remove_mapping(dataset: Dataset):
+def remove_mapping(dataset: Dataset) -> None:
     gqs_mapping.remove_mapping(dataset)
 
 
 @main.group()
-def convert():
+def convert() -> None:
     "Convert queries between forms"
 
 
 @convert.command("csv-to-proto")
 @option_dataset
-def csv_to_proto(dataset: Dataset):
+def csv_to_proto(dataset: Dataset) -> None:
     """Convert the textual query results to index-based in protobuffer format.."""
     assert gqs_mapping.mapping_exists(dataset), "Before converting, you have to create a mapping"
     relmap, entmap = gqs_mapping.get_mappers(dataset)

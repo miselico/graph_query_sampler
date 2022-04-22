@@ -7,7 +7,7 @@ name: Python package
 on:
   push:
     branches:
-      - 'main'
+      - "main"
 
 jobs:
   build:
@@ -41,7 +41,7 @@ jobs:
           flake8 src tests
       - name: Check typing with mypy
         run: |
-          mypy --install-types --non-interactive src tests
+          mypy  --strict --install-types --non-interactive src tests
       - name: Test with pytest
         run: |
           py.test tests -m "not full_data"
