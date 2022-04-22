@@ -188,11 +188,10 @@ def sample():
 @sample.command("create")
 @option_dataset
 @option_database_url
-@click.option("--keep-uncompressed", is_flag=True, default=False)
-def create_sample(dataset: Dataset, database_url: str, keep_uncompressed: bool):
+def create_sample(dataset: Dataset, database_url: str):
     """Create queries from the stored triples, store in CSV format."""
     sparql_endpoint = dataset.graphDB_url_to_endpoint(database_url)
-    sample_queries.execute_queries(dataset, sparql_endpoint, compress=not keep_uncompressed)
+    sample_queries.execute_queries(dataset, sparql_endpoint)
 
 
 @sample.command("remove")
