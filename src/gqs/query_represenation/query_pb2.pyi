@@ -1,9 +1,10 @@
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from typing import ClassVar, Iterable, Mapping, Optional, Union
+from typing import Any, ClassVar, Iterable, Mapping, Optional, Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
 
 class EntityOrLiteral(_message.Message):
     __slots__ = ["entity", "literal"]
@@ -13,6 +14,7 @@ class EntityOrLiteral(_message.Message):
     literal: str
     def __init__(self, entity: Optional[int] = ..., literal: Optional[str] = ...) -> None: ...
 
+
 class Qualifier(_message.Message):
     __slots__ = ["corresponding_triple", "qualifier_relation", "qualifier_value"]
     CORRESPONDING_TRIPLE_FIELD_NUMBER: ClassVar[int]
@@ -21,7 +23,8 @@ class Qualifier(_message.Message):
     corresponding_triple: int
     qualifier_relation: int
     qualifier_value: EntityOrLiteral
-    def __init__(self, qualifier_relation: Optional[int] = ..., qualifier_value: Optional[Union[EntityOrLiteral, Mapping]] = ..., corresponding_triple: Optional[int] = ...) -> None: ...
+    def __init__(self, qualifier_relation: Optional[int] = ..., qualifier_value: Optional[Union[EntityOrLiteral, Mapping[Any, Any]]] = ..., corresponding_triple: Optional[int] = ...) -> None: ...
+
 
 class Query(_message.Message):
     __slots__ = ["diameter", "easy_targets", "hard_targets", "qualifiers", "triples"]
@@ -35,13 +38,15 @@ class Query(_message.Message):
     hard_targets: _containers.RepeatedCompositeFieldContainer[EntityOrLiteral]
     qualifiers: _containers.RepeatedCompositeFieldContainer[Qualifier]
     triples: _containers.RepeatedCompositeFieldContainer[Triple]
-    def __init__(self, triples: Optional[Iterable[Union[Triple, Mapping]]] = ..., qualifiers: Optional[Iterable[Union[Qualifier, Mapping]]] = ..., easy_targets: Optional[Iterable[Union[EntityOrLiteral, Mapping]]] = ..., hard_targets: Optional[Iterable[Union[EntityOrLiteral, Mapping]]] = ..., diameter: Optional[int] = ...) -> None: ...
+    def __init__(self, triples: Optional[Iterable[Union[Triple, Mapping[Any, Any]]]] = ..., qualifiers: Optional[Iterable[Union[Qualifier, Mapping[Any, Any]]]] = ..., easy_targets: Optional[Iterable[Union[EntityOrLiteral, Mapping[Any, Any]]]] = ..., hard_targets: Optional[Iterable[Union[EntityOrLiteral, Mapping[Any, Any]]]] = ..., diameter: Optional[int] = ...) -> None: ...
+
 
 class QueryData(_message.Message):
     __slots__ = ["queries"]
     QUERIES_FIELD_NUMBER: ClassVar[int]
     queries: _containers.RepeatedCompositeFieldContainer[Query]
-    def __init__(self, queries: Optional[Iterable[Union[Query, Mapping]]] = ...) -> None: ...
+    def __init__(self, queries: Optional[Iterable[Union[Query, Mapping[Any, Any]]]] = ...) -> None: ...
+
 
 class Triple(_message.Message):
     __slots__ = ["object", "predicate", "subject"]
@@ -51,4 +56,4 @@ class Triple(_message.Message):
     object: EntityOrLiteral
     predicate: int
     subject: int
-    def __init__(self, subject: Optional[int] = ..., predicate: Optional[int] = ..., object: Optional[Union[EntityOrLiteral, Mapping]] = ...) -> None: ...
+    def __init__(self, subject: Optional[int] = ..., predicate: Optional[int] = ..., object: Optional[Union[EntityOrLiteral, Mapping[Any, Any]]] = ...) -> None: ...
