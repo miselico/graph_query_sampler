@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+message EntityOrLiteral {
+    oneof entity_literal {
+        uint32 entity = 1;
+        string literal = 2;
+    }
+}
+
+message Triple{
+    uint32 subject = 1;
+    uint32 predicate = 2;
+    EntityOrLiteral object = 3;
+}
+
+message Qualifier {
+    uint32 qualifier_relation = 1;
+    EntityOrLiteral qualifier_value = 2;
+    uint32 corresponding_triple = 4;
+}
+
+
+message Query {
+    repeated Triple triples = 1;
+    repeated Qualifier qualifiers = 2;
+    repeated EntityOrLiteral easy_targets = 3;
+    repeated EntityOrLiteral hard_targets = 4;
+    uint32 diameter = 5;
+}
+
+message QueryData {
+    repeated Query queries = 1;
+}
+
+
+
