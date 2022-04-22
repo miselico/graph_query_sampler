@@ -110,8 +110,7 @@ def execute_queries(
     sparql_endpoint: str,
     sparql_endpoint_options: Optional[Dict[str, Any]] = None,
     continue_on_error: bool = False,
-    shuffling_random_seed: int = 58148615010101,
-    compress: bool = True
+    shuffling_random_seed: int = 58148615010101
 ) -> None:
     """
     Perform the higher order queries in all subdirectories and store their results in CSV files.
@@ -198,7 +197,7 @@ def execute_queries(
         # compute the destination path
         absolute_target_directory = target_directory.joinpath(relative_source_directory)
         absolute_target_directory.mkdir(parents=True, exist_ok=True)
-        suffix = ".csv.gz" if compress else ".csv"
+        suffix = ".csv.gz"
         absolute_target_path = absolute_target_directory.joinpath(name_stem).with_suffix(suffix).resolve()
         logger.info(f"{query_file_path.as_uri()} -> {absolute_target_path.as_uri()}")
 
@@ -225,7 +224,7 @@ def execute_queries(
         logger.warning(f"Performing query for {query_file_path.as_uri()} to {absolute_target_path.as_uri()}")
         try:
             try:
-                count = _execute_one_query(query, absolute_target_path, sparql_endpoint, sparql_endpoint_options, shuffling_random_seed, compress)
+                count = _execute_one_query(query, absolute_target_path, sparql_endpoint, sparql_endpoint_options, shuffling_random_seed)
             except HTTPError as e:
                 raise Exception(str(e) + str(e.response.content)) from e
             new_stats = {"name": name_stem, "hash": new_query_hash, "raw-count": count}
@@ -248,7 +247,7 @@ def execute_queries(
     _separate_hard_and_easy_targets(target_directory, dataset.query_csv_location())
 
 
-def _execute_one_query(query: str, destination_path: Path, sparql_endpoint: str, sparql_endpoint_options: Dict[str, Any], shuffling_random_seed: int, compress: bool) -> int:
+def _execute_one_query(query: str, destination_path: Path, sparql_endpoint: str, sparql_endpoint_options: Dict[str, Any], shuffling_random_seed: int) -> int:
     """
     Performs the query provided and writes the results as a CSV to the destination.
     the queries are shuffled randomly (fixed seed) before storing to make later sampling a top-k operation instead of real sampling
@@ -267,10 +266,7 @@ def _execute_one_query(query: str, destination_path: Path, sparql_endpoint: str,
     r = random.Random(shuffling_random_seed)
     r.shuffle(all_queries)
     with ExitStack() as stack:
-        if compress:
-            output_file = stack.enter_context(gzip.open(destination_path, compresslevel=6, mode="wt", newline=""))
-        else:
-            output_file = stack.enter_context(open(destination_path, "wt"))
+        output_file = stack.enter_context(gzip.open(destination_path, compresslevel=6, mode="wt", newline=""))
         writer = csv.DictWriter(output_file, fieldnames, extrasaction="raise", dialect="unix", quoting=csv.QUOTE_MINIMAL)
         writer.writeheader()
         for one_query in all_queries:
@@ -293,13 +289,17 @@ def _separate_hard_and_easy_targets(raw_query_directory: Path, target_path: Path
         validation_stats = _load_json_from_file(source / "validation_stats.json")
         test_stats = _load_json_from_file(source / "test_stats.json")
 
-        train_output_file = (target / "train.csv.gz")
-        validation_output_file = (target / "validation.csv.gz")
-        test_output_file = (target / "test.csv.gz")
+        target.mkdir(parents=True, exist_ok=True)
 
-        # train can just be copied directly, we do not even check the hash because this should be about as fast
-        train_output_file.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(train_input_file, train_output_file)
+        train_output_file = (target / "train.csv")
+        validation_output_file = (target / "validation.csv")
+        test_output_file = (target / "test.csv")
+
+        # for train, we have to rename the target columns to target-hard and add an empty target-easy column
+        train, target_column = _read_csv_and_target_column(train_input_file)
+        train[target_column + "-easy"] = ""
+        train[target_column + "-hard"] = train[target_column]
+        _write_dataframe_to_compressed_csv(train, train_output_file)
         train_stats["count"] = train_stats["raw-count"]
         _dump_json_to_file(target / "train_stats.json", train_stats)
 
@@ -311,8 +311,8 @@ def _separate_hard_and_easy_targets(raw_query_directory: Path, target_path: Path
 
         # create the validation set by filtering stuff from train out
         validation_with_easy_and_hard = _combine_train_validation_answers(train, validation, target_column, common_columns)
-        combined_hash = hashlib.md5(( train_stats["hash"] + "|" + validation_stats["hash"]).encode("utf8") ).hexdigest()
-        stats_output = target / "validation_sats.json"
+        combined_hash = hashlib.md5((train_stats["hash"] + "|" + validation_stats["hash"]).encode("utf8")).hexdigest()
+        stats_output = target / "validation_stats.json"
         _postprocess(validation_with_easy_and_hard, target_column, validation_output_file, validation_stats, combined_hash, stats_output)
 
         # We will reuse the implementation for train and validation for the test set as well.
@@ -322,7 +322,7 @@ def _separate_hard_and_easy_targets(raw_query_directory: Path, target_path: Path
         train_validation[target_column] = train_validation.apply(
             lambda row:
                 (row[target_column + "_train"] if isinstance(row[target_column + "_train"], set) else set())
-                    .union(row[target_column + "_validation"] if isinstance(row[target_column + "_validation"], set) else set()),
+            .union(row[target_column + "_validation"] if isinstance(row[target_column + "_validation"], set) else set()),
             axis=1
         )
         # remove the tmp columns
@@ -330,23 +330,37 @@ def _separate_hard_and_easy_targets(raw_query_directory: Path, target_path: Path
         train_validation.pop(target_column + "_validation")
         # reuse the combine implementation, assuming identities
         test_with_easy_and_hard = _combine_train_validation_answers(train=train_validation, validation=test, target_column=target_column, common_columns=common_columns)
-        combined_hash = hashlib.md5(( train_stats["hash"] + "|" + validation_stats["hash"] + "|" + test_stats["hash"]).encode("utf8") ).hexdigest()
+        combined_hash = hashlib.md5((train_stats["hash"] + "|" + validation_stats["hash"] + "|" + test_stats["hash"]).encode("utf8")).hexdigest()
         stats_output = target / "test_stats.json"
         _postprocess(test_with_easy_and_hard, target_column, test_output_file, test_stats, combined_hash, stats_output)
         logger.info(f"Done converting from {source} to {target}.")
 
 
+def _write_dataframe_to_compressed_csv(dataframe: pd.DataFrame, file_without_gz: Path):
+    name = file_without_gz.name
+    with_gz = name + ".gz"
+    file_with_gz = file_without_gz.parent / with_gz
+    dataframe.to_csv(file_with_gz, compression="gzip")
+
+
 def _postprocess(queries_with_easy_and_hard: pd.DataFrame, target_column: str, output_file: Path, query_stats: Any, new_hash: str, stats_output: Path):
     # now we have to convert back from sets to string to be able to write the CSV
-    queries_with_easy_and_hard[target_column + "-hard"] = queries_with_easy_and_hard[target_column + "-hard"].map(lambda hardset: "|".join(hardset))
-    queries_with_easy_and_hard[target_column + "-easy"] = queries_with_easy_and_hard[target_column + "-easy"].map(lambda easyset: "|".join(easyset) if isinstance(easyset, set) else "")
-    queries_with_easy_and_hard.to_csv(output_file)
+    _deterministically_convert_set_column_to_bar_separated(queries_with_easy_and_hard, target_column + "-hard", False)
+    _deterministically_convert_set_column_to_bar_separated(queries_with_easy_and_hard, target_column + "-easy", True)
+
+    _write_dataframe_to_compressed_csv(queries_with_easy_and_hard, output_file)
 
     # write the stats file with modified hash
     query_stats["hash"] = new_hash
     query_stats["count"] = queries_with_easy_and_hard.shape[0]
     _dump_json_to_file(stats_output, query_stats)
 
+
+def _deterministically_convert_set_column_to_bar_separated(frame: pd.DataFrame, column_name: str, nan_to_empty: bool):
+    if not nan_to_empty:
+        frame[column_name] = frame[column_name].map(lambda the_set: "|".join(sorted(the_set)))
+    else:
+        frame[column_name] = frame[column_name].map(lambda the_set: "|".join(sorted(the_set)) if isinstance(the_set, set) else "")
 
 
 def _combine_train_validation_answers(train: pd.DataFrame, validation: pd.DataFrame, target_column: str, common_columns: List[str]) -> pd.DataFrame:
@@ -397,12 +411,18 @@ def _combine_train_validation_answers(train: pd.DataFrame, validation: pd.DataFr
     return merged
 
 
-def _read_csv_with_target_as_set(input_file: Path) -> Tuple[pd.DataFrame, str]:
+def _read_csv_and_target_column(input_file: Path) -> Tuple[pd.DataFrame, str]:
     """Read a CSV file into a pandas df. Then converts the column which contains the targets into set objects. Returns the new df and the target column name"""
     dataset = pd.read_csv(input_file, compression="gzip")
     target_columns = [column_name for column_name in dataset.columns if column_name.endswith("_target")]
     assert len(target_columns) == 1
     target_column = target_columns[0]
+    return dataset, target_column
+
+
+def _read_csv_with_target_as_set(input_file: Path) -> Tuple[pd.DataFrame, str]:
+    """Read a CSV file into a pandas df. Then converts the column which contains the targets into set objects. Returns the new df and the target column name"""
+    dataset, target_column = _read_csv_and_target_column(input_file)
     dataset[target_column] = dataset[target_column].map(
         lambda value: set(value.split("|"))
     )

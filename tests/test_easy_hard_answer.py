@@ -34,7 +34,6 @@ def test_merge_train_validation():
     assert_frame_equal(result.sort_index(axis=1), expected_result.sort_index(axis=1), check_names=True)
 
 
-
 # The current implementation cannot work with empty frames, it raises an exception on these inputs.
 # def test_merge_train_empty_validation():
 #     train = pd.DataFrame({
@@ -61,10 +60,6 @@ def test_merge_train_validation():
 #     }), target_column)
 
 #     assert_frame_equal(result.sort_index(axis=1), expected_result.sort_index(axis=1), check_names=True)
-
-
-
-
 
 
 def _stringify_sets(merged: pd.DataFrame, target_column: str) -> pd.DataFrame:
