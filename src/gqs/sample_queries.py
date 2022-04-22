@@ -227,7 +227,7 @@ def sample_queries(
             absolute_target_path.unlink()
 
         # perform the query and store the results
-        logger.warning(f"Performing query for {query_file_path.as_uri()} to {absolute_target_path.as_uri()}")
+        logger.info(f"Performing query for {query_file_path.as_uri()} to {absolute_target_path.as_uri()}")
         try:
             try:
                 count = _execute_one_query(query, absolute_target_path, sparql_endpoint, sparql_endpoint_options, shuffling_random_seed)
@@ -282,32 +282,40 @@ def _execute_one_query(query: str, destination_path: Path, sparql_endpoint: str,
 
 def _separate_hard_and_easy_targets(raw_query_directory: Path, target_path: Path) -> None:
     for (source, target) in pairwise_directories(raw_query_directory, target_path):
-        train_input_file = (source / "train.csv.gz")
-        validation_input_file = (source / "validation.csv.gz")
-        test_input_file = (source / "test.csv.gz")
-        if train_input_file.exists() or validation_input_file.exists() or test_input_file.exists():
-            assert train_input_file.exists() and validation_input_file.exists() and test_input_file.exists(),  \
-                f"Found one of train, validation, or test, but not all three in {source.relative_to(raw_query_directory)}. Cannot continue"
-        else:
+        query_sets_found = False
+        for file in source.glob("*"):
+            if not file.is_file():
+                continue
+            if file.name.endswith("train.csv.gz"):
+                file_prefix = file.name[:-len("train.csv.gz")]
+                query_sets_found = True
+                break
+        if not query_sets_found:
             continue
+        train_input_file = source / (file_prefix + "train.csv.gz")
+        validation_input_file = source / (file_prefix + "validation.csv.gz")
+        test_input_file = source / (file_prefix + "test.csv.gz")
+        assert train_input_file.exists() and validation_input_file.exists() and test_input_file.exists(),  \
+            f"Found one of train, validation, or test with prefix {file_prefix}, but not all three in {source.relative_to(raw_query_directory)}. Cannot continue"
         # At this point we know that all three input files exist, loading their stats
-        train_stats = _load_json_from_file(source / "train_stats.json")
-        validation_stats = _load_json_from_file(source / "validation_stats.json")
-        test_stats = _load_json_from_file(source / "test_stats.json")
+        train_stats = _load_json_from_file(source / (file_prefix + "train_stats.json"))
+        validation_stats = _load_json_from_file(source / (file_prefix + "validation_stats.json"))
+        test_stats = _load_json_from_file(source / (file_prefix + "test_stats.json"))
 
         target.mkdir(parents=True, exist_ok=True)
 
-        train_output_file = (target / "train.csv")
-        validation_output_file = (target / "validation.csv")
-        test_output_file = (target / "test.csv")
+        train_output_file = target / (file_prefix + "train.csv")
+        validation_output_file = target / (file_prefix + "validation.csv")
+        test_output_file = target / (file_prefix + "test.csv")
 
-        # for train, we have to rename the target columns to target-hard and add an empty target-easy column
+        # for train, we have to rename the target columns to targets-hard and add an empty target-easy column
         train, target_column = _read_csv_and_target_column(train_input_file)
-        train[target_column + "-easy"] = ""
+        train["targets-easy"] = ""
         train[target_column + "-hard"] = train[target_column]
+        train.pop(target_column)
         _write_dataframe_to_compressed_csv(train, train_output_file)
         train_stats["count"] = train_stats["raw-count"]
-        _dump_json_to_file(target / "train_stats.json", train_stats)
+        _dump_json_to_file(target / (file_prefix + "train_stats.json"), train_stats)
 
         # load the datasets
         train, target_column = _read_csv_with_target_as_set(train_input_file)
@@ -318,7 +326,7 @@ def _separate_hard_and_easy_targets(raw_query_directory: Path, target_path: Path
         # create the validation set by filtering stuff from train out
         validation_with_easy_and_hard = _combine_train_validation_answers(train, validation, target_column, common_columns)
         combined_hash = hashlib.md5((train_stats["hash"] + "|" + validation_stats["hash"]).encode("utf8")).hexdigest()
-        stats_output = target / "validation_stats.json"
+        stats_output = target / (file_prefix + "validation_stats.json")
         _postprocess(validation_with_easy_and_hard, target_column, validation_output_file, validation_stats, combined_hash, stats_output)
 
         # We will reuse the implementation for train and validation for the test set as well.
@@ -337,7 +345,7 @@ def _separate_hard_and_easy_targets(raw_query_directory: Path, target_path: Path
         # reuse the combine implementation, assuming identities
         test_with_easy_and_hard = _combine_train_validation_answers(train=train_validation, validation=test, target_column=target_column, common_columns=common_columns)
         combined_hash = hashlib.md5((train_stats["hash"] + "|" + validation_stats["hash"] + "|" + test_stats["hash"]).encode("utf8")).hexdigest()
-        stats_output = target / "test_stats.json"
+        stats_output = target / (file_prefix + "test_stats.json")
         _postprocess(test_with_easy_and_hard, target_column, test_output_file, test_stats, combined_hash, stats_output)
         logger.info(f"Done converting from {source} to {target}.")
 
@@ -352,7 +360,7 @@ def _write_dataframe_to_compressed_csv(dataframe: pd.DataFrame, file_without_gz:
 def _postprocess(queries_with_easy_and_hard: pd.DataFrame, target_column: str, output_file: Path, query_stats: Any, new_hash: str, stats_output: Path) -> None:
     # now we have to convert back from sets to string to be able to write the CSV
     _deterministically_convert_set_column_to_bar_separated(queries_with_easy_and_hard, target_column + "-hard", False)
-    _deterministically_convert_set_column_to_bar_separated(queries_with_easy_and_hard, target_column + "-easy", True)
+    _deterministically_convert_set_column_to_bar_separated(queries_with_easy_and_hard, "targets-easy", True)
 
     _write_dataframe_to_compressed_csv(queries_with_easy_and_hard, output_file)
 
@@ -376,7 +384,7 @@ def _combine_train_validation_answers(train: pd.DataFrame, validation: pd.DataFr
     # we have to split the answer sets for validation in the original target and easy_target (the one also in train)
     # we use a inner merge to only get the rows which are in both train and validation
     in_common = pd.merge(train, validation, how="inner", on=common_columns, suffixes=["_train", "_validation"])
-    in_common[target_column + "-easy"] = in_common[target_column + "_train"]
+    in_common["targets-easy"] = in_common[target_column + "_train"]
 
     # TODO remove the -hard suffix, this is not needed in the end
     hard_answers = in_common.apply(
@@ -393,7 +401,7 @@ def _combine_train_validation_answers(train: pd.DataFrame, validation: pd.DataFr
 
     # Now we merge again to find out which rows have only hard answers and were not in common at all
     merged = pd.merge(validation, in_common, how="left", on=common_columns, suffixes=["_validation-only", None])
-    to_be_overwritten = merged[target_column + "-hard"].isnull() & merged[target_column + "-easy"].isnull()
+    to_be_overwritten = merged[target_column + "-hard"].isnull() & merged["targets-easy"].isnull()
     merged.loc[to_be_overwritten, target_column + "-hard"] = merged.loc[to_be_overwritten, target_column]
 
     # get rid of the tmp column
@@ -401,7 +409,7 @@ def _combine_train_validation_answers(train: pd.DataFrame, validation: pd.DataFr
 
     def f(row: pd.Series) -> bool:
         hard_is_empty = len(row[target_column + "-hard"]) == 0
-        easy_has_stuff = len(row[target_column + "-easy"]) > 0 if isinstance(row[target_column + "-easy"], set) else False
+        easy_has_stuff = len(row["targets-easy"]) > 0 if isinstance(row["targets-easy"], set) else False
         result = hard_is_empty and easy_has_stuff
         return result
 
@@ -420,7 +428,7 @@ def _combine_train_validation_answers(train: pd.DataFrame, validation: pd.DataFr
 def _read_csv_and_target_column(input_file: Path) -> Tuple[pd.DataFrame, str]:
     """Read a CSV file into a pandas df. Then converts the column which contains the targets into set objects. Returns the new df and the target column name"""
     dataset = pd.read_csv(input_file, compression="gzip")
-    target_columns = [column_name for column_name in dataset.columns if column_name.endswith("_target")]
+    target_columns = [column_name for column_name in dataset.columns if column_name.endswith("_targets")]
     assert len(target_columns) == 1
     target_column = target_columns[0]
     return dataset, target_column
@@ -441,11 +449,13 @@ def remove_queries(dataset: Dataset) -> None:
     shutil.rmtree(dataset.query_csv_location(), ignore_errors=True)
 
 
-subject_matcher = re.compile("s[0-9]+")
-predicate_matcher = re.compile("p[0-9]+")
-object_matcher = re.compile("o[0-9]+")
-qualifier_relation_matcher = re.compile("qr[0-9]+i[0-9]+")
-qualifier_value_matcher = re.compile("qv[0-9]+i[0-9]+")
+subject_matcher = re.compile("^s[0-9]+$")
+predicate_matcher = re.compile("^p[0-9]+$")
+entity_object_matcher = re.compile("^o[0-9]+$")
+literal_object_matcher = re.compile("^ol[0-9]+$")
+qualifier_relation_matcher = re.compile("^qr[0-9]+i[0-9]+$")
+entity_qualifier_value_matcher = re.compile("^qv[0-9]+i[0-9]+$")
+literal_qualifier_value_matcher = re.compile("^qvl[0-9]+i[0-9]+$")
 
 
 def assert_query_validity(fieldnames: Iterable[str]) -> bool:
@@ -457,7 +467,7 @@ def assert_query_validity(fieldnames: Iterable[str]) -> bool:
     # We need a modifiable list
     fieldnames = list(fieldnames)
     # quick check for duplicates
-    allsubparts = [subpart for field in fieldnames for subpart in field.split("_") if not (subpart == "var" or subpart == "target")]
+    allsubparts = [subpart for field in fieldnames for subpart in field.split("_") if not (subpart == "var" or subpart == "targets")]
     duplicates = set([x for x in allsubparts if allsubparts.count(x) > 1])
     assert len(duplicates) == 0, "The following specifications where found in more than one specification: " + str(duplicates)
 
@@ -471,24 +481,27 @@ def assert_query_validity(fieldnames: Iterable[str]) -> bool:
     # The qualifier relation and value must refer to the same triple, we remmeber the triple number and verify in the end.
     qr_qv_found = [[-1, -1] for i in range(expected_qualifier_count)]
     for part in fieldnames:
-        if part.endswith("_target"):
+        # Note: at this point, targets are not yet split into hard and easy!
+        if part.endswith("_targets"):
             assert target_found is False, "more than one column with _target found. Giving up."
             target_found = True
-            targetHeader = part[:-len("_target")]
+            targetHeader = part[:-len("_targets")]
             subparts = targetHeader.split('_')
             assert "var" not in subparts, "'var' cannot occur in the same header with 'target', , got {part}"
         if part.endswith("_var"):
             varheader = part[:-len("_var")]
             subparts = varheader.split("_")
-            assert "target" not in subparts, f"'var' cannot occur in the same header with 'target', got {part}"
-        if part.endswith("_target") or part.endswith("_var"):
+            assert "targets" not in subparts, f"'var' cannot occur in the same header with 'target', got {part}"
+        if part.endswith("_targets") or part.endswith("_var"):
             # This header must contain only s, o, qr, qv
             for subpart in subparts:
                 if not any((
                     subject_matcher.match(subpart),
-                    object_matcher.match(subpart),
+                    entity_object_matcher.match(subpart),
+                    literal_object_matcher.match(subpart),
                     qualifier_relation_matcher.match(subpart),
-                    qualifier_value_matcher.match(subpart),
+                    literal_qualifier_value_matcher.match(subpart),
+                    entity_qualifier_value_matcher.match(subpart),
                 )):
                     raise ValueError(
                         f"the target header can only contain subject, predicate, object, query relation, or query "
@@ -524,8 +537,8 @@ def assert_query_validity(fieldnames: Iterable[str]) -> bool:
                     f"Found a {subpart} refering to triple {tripleIndex} while we only have {expected_triple_count} triples"
                 assert not spo_found[tripleIndex][1]
                 spo_found[tripleIndex][1] = True
-            elif object_matcher.match(subpart):
-                tripleIndex = int(subpart[1:])
+            elif entity_object_matcher.match(subpart) or literal_object_matcher.match(subpart):
+                tripleIndex = int(subpart[1:]) if entity_object_matcher.match(subpart) else int(subpart[2:])
                 assert tripleIndex < expected_triple_count, \
                     f"Found a {subpart} refering to triple {tripleIndex} while we only have {expected_triple_count} triples"
                 assert not spo_found[tripleIndex][2]
@@ -537,8 +550,8 @@ def assert_query_validity(fieldnames: Iterable[str]) -> bool:
                 qualIndex = int(indices[1])
                 assert qr_qv_found[qualIndex][0] == -1, f"qualifier relation qrXi{qualIndex} set twice"
                 qr_qv_found[qualIndex][0] = tripleIndex
-            elif qualifier_value_matcher.match(subpart):
-                indices = subpart[2:].split('i')
+            elif entity_qualifier_value_matcher.match(subpart) or literal_qualifier_value_matcher.match(subpart):
+                indices = subpart[2:].split('i') if entity_qualifier_value_matcher.match(subpart) else subpart[3:].split('i')
                 tripleIndex = int(indices[0])
                 assert tripleIndex < expected_triple_count, f"qualifier value {subpart} refers to non existing triple {tripleIndex}"
                 qualIndex = int(indices[1])
@@ -566,8 +579,8 @@ def assert_query_validity(fieldnames: Iterable[str]) -> bool:
     # In principle, this loop could occur as part of the above code checking the field, but that would render it pretty much unreadble.
     connectionFound = [False for i in range(expected_triple_count)]
     for part in fieldnames:
-        if part.endswith("_target"):
-            targetHeader = part[:-len("_target")]
+        if part.endswith("_targets"):
+            targetHeader = part[:-len("_targets")]
             subparts = targetHeader.split('_')
         elif part.endswith("_var"):
             varheader = part[:-len("_var")]
@@ -583,7 +596,7 @@ def assert_query_validity(fieldnames: Iterable[str]) -> bool:
             if subject_matcher.match(subpart):
                 tripleIndex = int(subpart[1:])
                 connectionFound[tripleIndex] = True
-            elif object_matcher.match(subpart):
+            elif entity_object_matcher.match(subpart) or literal_object_matcher.match(subpart):
                 tripleIndex = int(subpart[1:])
                 connectionFound[tripleIndex] = True
             else:

@@ -1,32 +1,25 @@
 """Convert text queries to numeric binary."""
-from .mapping import EntityMapper, RelationMapper  # , get_entity_mapper, get_relation_mapper
-from .generated.query_pb2 import Triple as pb_Triple
-from .generated.query_pb2 import QueryData as pb_QueryData
-from .generated.query_pb2 import Query as pb_Query
-from .generated.query_pb2 import Qualifier as pb_Qualifier
 import csv
-import dataclasses
 import gzip
 import json
 import logging
+import re
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import (Callable, Generic, Iterable, Mapping, Optional, Sequence,
-                    Type, TypeVar)
+from typing import (Callable, Generic, Iterable, Optional, Sequence,
+                    Tuple, Type, TypeVar)
 
-import dill
-import torch
-
-# from rdflib.plugins.stores.sparqlstore import SPARQLStore
-
-# from ..typing import LongTensor
-LongTensor = torch.Tensor
-
+from .mapping import (EntityMapper,  # , get_entity_mapper, get_relation_mapper
+                      RelationMapper)
+from .query_represenation.query_pb2 import \
+    EntityOrLiteral as pb_EntityOrLiteral
+from .query_represenation.query_pb2 import Qualifier as pb_Qualifier
+from .query_represenation.query_pb2 import Query as pb_Query
+from .query_represenation.query_pb2 import QueryData as pb_QueryData
+from .query_represenation.query_pb2 import Triple as pb_Triple
 
 __all__ = [
     "convert_all",
-    "QueryData",
-    "tensorBuilder",
     "protobufBuilder",
     # "StrippedSPARQLResultBuilder"
 ]
@@ -36,10 +29,10 @@ logger = logging.getLogger(__name__)
 T = TypeVar('T')
 
 
-class BinaryFormBuilder(Generic[T], ABC):
+class QueryBuilder(Generic[T], ABC):
     @classmethod
     @abstractmethod
-    def __init__(self, numberOfTriples: int, numberOfQualifiers: int) -> None:
+    def __init__(self, number_of_triples: int, number_of_qualifiers: int) -> None:
         pass
 
     @abstractmethod
@@ -58,7 +51,7 @@ class BinaryFormBuilder(Generic[T], ABC):
     def set_predicate(self, index: int, predicate: str) -> None:
         pass
 
-    def set_subject_predicate_object_entity(self, tripleIndex: int, subject: str, predicate: str, obj: str) -> None:
+    def set_subject_predicate_entity_object(self, tripleIndex: int, subject: str, predicate: str, obj: str) -> None:
         """Helper function to set subject, predicate and object at once"""
         self.set_subject(tripleIndex, subject)
         self.set_predicate(tripleIndex, predicate)
@@ -84,7 +77,18 @@ class BinaryFormBuilder(Generic[T], ABC):
         pass
 
     @abstractmethod
-    def set_targets(self, values: Iterable[str]) -> None:
+    def set_easy_entity_targets(self, values: Iterable[str]) -> None:
+        pass
+
+    @abstractmethod
+    def set_easy_literal_targets(self, values: Iterable[str]) -> None:
+        pass
+
+    @abstractmethod
+    def set_hard_entity_targets(self, values: Iterable[str]) -> None:
+        pass
+
+    def set_hard_literal_targets(self, values: Iterable[str]) -> None:
         pass
 
     @abstractmethod
@@ -98,177 +102,77 @@ class BinaryFormBuilder(Generic[T], ABC):
     @staticmethod
     def get_file_extension() -> str:
         """Get the extension to be used for files stored with the store method. Each deriving class must implement its own static method."""
-        raise Exception("Each class deriving must implement its own version fo this.s")
+        raise NotImplementedError("Each class deriving must implement its own version fo this.s")
 
     @abstractmethod
     def store(self, collection: Iterable[T], absolute_target_path: Path) -> None:
         pass
 
 
-class ShapeError(RuntimeError):
-    """An error raised if the shape does not match."""
+def _get_triple_and_qualifier_count_from_headers(fieldnames: Sequence[str]) -> Tuple[int, int]:
+    all_headers = set([subpart.strip() for header in fieldnames for subpart in header.split("_")])
 
-    def __init__(self, actual_shape: Sequence[int], expected_shape: Sequence[Optional[int]]) -> None:
-        """
-        Initialize the error.
+    # We count the number of subjects in the headers to get the number of triples
+    number_of_triples = sum(1 for header in all_headers if re.match(r'^s[0-9]+$', header.strip()))
 
-        :param actual_shape:
-            The actual shape.
-        :param expected_shape:
-            The expected shape.
-        """
-        super().__init__(f"Actual shape {actual_shape} does not match expected shape {expected_shape}")
+    # We count the number of query relations in the headers to get the number of triples
+    number_of_qualifiers = sum(1 for header in all_headers if re.match(r'^qr[0-9]+i[0-9]+$', header.strip()))
+    return number_of_triples, number_of_qualifiers
 
 
-def _check_shape(
-    tensor: torch.Tensor,
-    expected_shape: Sequence[Optional[int]],
-) -> bool:
-    """Check the shape of a tensor."""
-    actual_shape = tensor.shape
-    if len(expected_shape) != len(actual_shape):
-        raise ShapeError(actual_shape=actual_shape, expected_shape=expected_shape)
-
-    for dim, e_dim in zip(actual_shape, expected_shape):
-        if e_dim is not None and dim != e_dim:
-            raise ShapeError(actual_shape=actual_shape, expected_shape=expected_shape)
-
-    return True
-
-
-@dataclasses.dataclass()
-class QueryData:
-    """This class represents a single query."""
-
-    #: A tensor of edges. shape: (2, num_edges)
-    #: The first row contains the heads, the second row the targets.
-    edge_index: LongTensor
-
-    # A tensor of edge types (i.e. relation IDs), shape: (num_edges,)
-    edge_type: LongTensor
-
-    # A tensor of shape (3, number_of_qualifier_pairs), one column for each qualifier pair.
-    # The column contains (in this order) the id of the qualifier relation,
-    # the id of the qualifier value, and the index of the corresponding edge
-    qualifier_index: LongTensor
-
-    # A tensor with the ids of all answers for this query, shape: (num_answers,)
-    targets: LongTensor
-
-    # The longest shortest path between two nodes in this query graph, a scalar tensor.
-    query_diameter: LongTensor
-
-    # A flag to indicate that the inverse relations are already included in the tensors.
-    # This is to prevent accidentally calling withInverses twice
-    inverses_already_set: bool = False
-
-    def __post_init__(self) -> None:
-        assert _check_shape(tensor=self.edge_index, expected_shape=(2, None))
-        assert _check_shape(tensor=self.edge_type, expected_shape=(None,))
-        assert _check_shape(tensor=self.qualifier_index, expected_shape=(3, None))
-        assert _check_shape(tensor=self.targets, expected_shape=(None,))
-        assert _check_shape(tensor=self.query_diameter, expected_shape=tuple())
-
-    def get_number_of_triples(self) -> int:
-        """
-        Get number of triples in the query
-
-        Returns
-        -------
-        number_of_triples int
-            The number of triples in the query
-        """
-        return self.edge_index.size()[1]
-
-    def get_number_of_qualifiers(self) -> int:
-        """
-        Get number of qualifiers in the query
-
-        Returns
-        -------
-        number_of_qualifiers int
-            The number of qualifiers in the query
-        """
-        return self.qualifier_index.size()[1]
-
-    def with_inverses(self, relmap: RelationMapper) -> "QueryData":
-        """
-        Gives you a copy of this QueryData which has inverses added.
-
-        Raises
-        ------
-        AssertionError
-            If this QueryData already contains inverses.
-            You can check the inverses_already_set property to check,
-            but usually you should know from the programming context.
-
-        Returns
-        -------
-        QueryData
-            A new QueryData object with the inverse edges (and accompanying qualifiers) set
-        """
-        assert not self.inverses_already_set
-        number_of_riples = self.get_number_of_triples()
-        number_of_qualifiers = self.get_number_of_qualifiers()
-        # Double the space for edges, edge types and qualifier
-        new_edge_index = torch.full((2, number_of_riples * 2), -1, dtype=torch.int)
-        new_edge_type = torch.full((number_of_riples * 2,), -1, dtype=torch.int)
-        new_qualifier_index = torch.full((3, number_of_qualifiers * 2), -1, dtype=torch.int)
-        # copy old values
-        new_edge_index[:, 0:number_of_riples] = self.edge_index
-        new_edge_type[:, 0:number_of_riples] = self.edge_type
-        new_qualifier_index[:, 0:number_of_qualifiers] = self.qualifier_index
-        # add the inverse values
-        new_edge_index[0, number_of_riples:] = self.edge_index[1]
-        new_edge_index[1, number_of_riples:] = self.edge_index[0]
-        for index, val in enumerate(self.edge_type):
-            new_edge_type[number_of_riples + index] = relmap.get_inverse_of_index(val)
-        # for the qualifiers, we first copy and then update the indices to the corresponding triples
-        new_qualifier_index[:, number_of_qualifiers:] = self.qualifier_index
-        new_qualifier_index[2, number_of_qualifiers:] += number_of_riples
-
-        new_targets = self.targets
-        new_query_diameter = self.query_diameter
-
-        return QueryData(new_edge_index, new_edge_type, new_qualifier_index, new_targets,
-                         new_query_diameter, inverses_already_set=True)
-
-
-def convert_one(absolute_source_path: Path, absolute_target_path: Path, builderClass: Type[BinaryFormBuilder[T]]) -> Mapping[str, str]:
-    """Convert a file of textual queries to binary format."""
+def convert_one(absolute_source_path: Path, absolute_target_path: Path, builderClass: Type[QueryBuilder[T]]) -> None:
+    """Convert a file of textual queries to another format as specified in the builder."""
     converted = []
 
     with gzip.open(absolute_source_path, mode="rt", newline="") as input_file:
         reader = csv.DictReader(input_file, dialect="unix", quoting=csv.QUOTE_MINIMAL)
         assert reader.fieldnames is not None
-        all_headers = [subpart.strip() for header in reader.fieldnames for subpart in header.split("_")]
-
-        # We count the number of subjects in the headers to get the number of triples
-        number_of_triples = sum(1 for header in all_headers if header.strip().startswith("s"))
-
-        # We count the number of query relations in the headers to get the number of triples
-        number_of_qualifiers = sum(1 for header in all_headers if header.strip().startswith("qr"))
+        number_of_triples, number_of_qualifiers = _get_triple_and_qualifier_count_from_headers(reader.fieldnames)
 
         query_count = 0
         for row in reader:
             query_count += 1
             builder = builderClass(number_of_triples, number_of_qualifiers)
             for (part, value) in row.items():
+                if part == "":
+                    # empty headers are skipped
+                    continue
                 sub_parts = part.split("_")
 
-                if sub_parts[-1] == "target":
+                if sub_parts[-1] in {"targets-easy", "targets-hard", "ltargets-easy", "ltargets-hard"}:
                     # store the targets
-                    targets = value.split("|")
+                    target_spec = sub_parts[-1]
+                    easy = target_spec.endswith("easy")
+                    literals = target_spec.startswith("ltargets")
+
+                    if easy:
+                        assert len(sub_parts) == 1, "In the easy targets column, there can be no specification of the position. This must only be placed on the hard targets column"
+                    if value.strip() == "":
+                        assert easy, "Only easy targets can be empty"
+                        targets = []
+                    else:
+                        targets = value.split("|")
                     assert len(set(targets)) == len(targets), f"Targets must be unique, got {targets}"
-                    builder.set_targets(targets)
+
+                    if easy and literals:
+                        builder.set_easy_literal_targets(targets)
+                    elif not easy and literals:
+                        builder.set_hard_literal_targets(targets)
+                    elif easy and not literals:
+                        builder.set_easy_entity_targets(targets)
+                    elif not easy and not literals:
+                        builder.set_hard_entity_targets(targets)
+                    else:
+                        raise AssertionError("All cases should be handled, else should never be taken")
                     # we override the value with "TARGET"
                     value = EntityMapper.get_target_entity_name()
-                    # chop off the target
+                    # chop off the targets
                     sub_parts = sub_parts[:-1]
                 elif sub_parts[-1] == "var":
+                    assert EntityMapper.is_valid_variable_name(value), f"Invalid variable name, got {value}"
                     # No special action needed except stripping it off, the value of these variables will be enough to do the right thing
-                    assert EntityMapper.is_valid_variable_name(value), f"Got {value}"
                     sub_parts = sub_parts[:-1]
+                # var and tatget specifiers are chopped off. Now we still deal with the field itself
                 for subpart in sub_parts:
                     subpart = subpart.strip()
                     # we treat each different: subject, predicate, object, qr, qv
@@ -311,16 +215,15 @@ def convert_one(absolute_source_path: Path, absolute_target_path: Path, builderC
         # need to create the first builder still. Otehrwise we reuse it from the loop
         builder = builderClass(number_of_triples, number_of_qualifiers)
     builder.store(converted, absolute_target_path)
-    return {"state": "Success"}
 
 
 def convert_all(
     source_directory: Path,
     target_directory: Path,
-    builder: Type[BinaryFormBuilder[T]],
+    builder: Type[QueryBuilder[T]],
     filter: Optional[Callable[[str], bool]] = None
 ) -> None:
-    """Convert all textual queries to binary format."""
+    """Convert all textual queries to the format specified by the builder."""
     if not list(source_directory.rglob("*.csv.gz")):
         logger.warning(f"Empty source directory: {source_directory}")
     for query_file_path in source_directory.rglob("*.csv.gz"):
@@ -369,11 +272,12 @@ def convert_all(
             absolute_target_path.unlink()
 
         # perform the conversion and store the results
-        logger.warning(f"Performing conversion from {query_file_path.as_uri()} to {absolute_target_path.as_uri()}")
+        logger.info(f"Performing conversion from {query_file_path.as_uri()} to {absolute_target_path.as_uri()}")
         try:
-            conversion_stats = convert_one(query_file_path, absolute_target_path, builder)
-            # Add them to the sourceStats to augment them with new information
-            source_stats["conversion"] = conversion_stats
+            convert_one(query_file_path, absolute_target_path, builder)
+            # augment the stats with succesful conversion information
+            source_stats["conversion"] = {"state": "Success"}
+
             try:
                 with target_stats_file_path.open(mode="w") as stats_file:
                     # The sourceStats are now augmented with new info, so we write that to the target stats
@@ -391,162 +295,23 @@ def convert_all(
             raise
 
 
-def tensorBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[BinaryFormBuilder[QueryData]]:
-    class TensorBuilder(BinaryFormBuilder[QueryData]):
-        """A builder for binary forms."""
+def protobufBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[QueryBuilder[pb_Query]]:
 
-        # This is a singleton used each time there are no qualifiers in the query
-        __EMPTY_QUALIFIERS = torch.full((3, 0), -1, dtype=torch.long)
-
-        targets: Optional[LongTensor]
+    class ProtobufQueryBuilder(QueryBuilder[pb_Query]):
 
         def __init__(self, number_of_triples: int, number_of_qualifiers: int) -> None:
             """
-            Initialize the builder.
-            """
-            super().__init__(number_of_triples, number_of_qualifiers)
-            self.number_of_triples = number_of_triples
-            self.number_of_qualifiers = number_of_qualifiers
-            # We initialize everything to -1. After adding the data there must not be a single -1 left.
-            # Store the subject and object,
-            self.edge_index = torch.full((2, number_of_triples), -1, dtype=torch.long)
-            # Store the type of each edge,
-            self.edge_type = torch.full((number_of_triples,), -1, dtype=torch.long)
-            # Store all qualifiers. The first row has the qualifier relation, the second on the value and the third one the triple to which is belongs.
-            if number_of_qualifiers == 0:
-                self.qualifiers = TensorBuilder.__EMPTY_QUALIFIERS
-            else:
-                self.qualifiers = torch.full((3, number_of_qualifiers), -1, dtype=torch.long)
-            # the diameter of the query
-            self.diameter = -1
-            # The targets of the query. This size is unknown upfront, so we will just create it when set
-            self.targets = None
-            self.qual_mapping_valid = True
-
-        def set_subject(self, index: int, entity: str) -> None:
-            entity_index = entmap.lookup(entity)
-            # set normal edge
-            self.set_subject_ID(index, entity_index)
-
-        def set_subject_ID(self, index: int, entity_index: int) -> None:
-            assert self.edge_index[0, index] == -1
-            self.edge_index[0, index] = entity_index
-
-        def set_entity_object(self, index: int, entity: str) -> None:
-            entity_index = entmap.lookup(entity)
-            # set normal edge
-            self.set_object_ID(index, entity_index)
-
-        def set_literal_object(self, index: int, entity: str) -> None:
-            raise NotImplementedError("Tensor builder does not support literals, use protocol buffers.")
-
-        def set_object_ID(self, index: int, entity_index: int) -> None:
-            assert self.edge_index[1, index] == -1
-            self.edge_index[1, index] = entity_index
-
-        def set_predicate(self, index: int, predicate: str) -> None:
-            # set normal edge
-            predicate_index = relmap.lookup(predicate)
-            self.set_predicate_ID(index, predicate_index)
-
-        def set_predicate_ID(self, index: int, predicate_index: int) -> None:
-            assert self.edge_type[index] == -1
-            self.edge_type[index] = predicate_index
-
-        def set_subject_predicate_object_ID(self, triple_index: int, subject: int, predicate: int, object: int) -> None:
-            self.set_subject_ID(triple_index, subject)
-            self.set_predicate_ID(triple_index, predicate)
-            self.set_object_ID(triple_index, object)
-
-        def set_qualifier_rel(self, triple_index: int, qualifier_index: int, predicate: str) -> None:
-            # set forward
-            predicate_index = relmap.lookup(predicate)
-            self.qualifiers[0, qualifier_index] = predicate_index
-            self.qualifiers[2, qualifier_index] = triple_index
-
-        def set_qualifier_rel_ID(self, qualifier_index: int, predicateIndex: int, tripleIndex: int) -> None:
-            """
-            WARNING : if you use this method, you can no longer use the normal set_qualifier methods because
-            this builder no longer has track of the indices
-            """
-            self.qual_mapping_valid = False
-            self.qualifiers[0, qualifier_index] = predicateIndex
-            self.qualifiers[2, qualifier_index] = tripleIndex
-
-        def set_qualifier_entity_val(self, triple_index: int, qualifier_index: int, value: str) -> None:
-            value_index = entmap.lookup(value)
-            # set forward
-            self.qualifiers[1, qualifier_index] = value_index
-
-        def set_qualifier_literal_val(self, tripleIndex: int, index: int, value: str) -> None:
-            raise NotImplementedError("Tensorbuilder does not support literal values, use protocol buffers.")
-
-        def set_qualifier_val_ID(self, qualifier_index: int, value_index: int, tripleIndex: int) -> None:
-            """
-            .. warning ::
-                if you use this method, you can no longer use the normal set_qualifier methods because
-                this builder no longer has track of the indices
-            """
-            self.qual_mapping_valid = False
-            self.qualifiers[1, qualifier_index] = value_index
-            # note: tripleIndex is not set. We assume it is set in set_qualifier_rel_ID, eithe before or after this call.
-
-        def set_targets(self, values: Iterable[str]) -> None:
-            assert self.targets is None, "the list of targets can only be set once. If it is needed to create this incrementally, this implementations can be changed to first collect and only create the tensor in the final build."
-            assert len(list(values)) == len(set(values)), f"Values must be a set got {values}"
-            mapped = [entmap.lookup(value) for value in values]
-            self.targets = torch.as_tensor(mapped, dtype=torch.long)
-
-        def set_targets_ID(self, mapped: Iterable[int]) -> None:
-            assert len(list(mapped)) == len(set(mapped))
-            self.targets = torch.as_tensor(data=mapped, dtype=torch.long)
-
-        def set_diameter(self, diameter: int) -> None:
-            assert self.diameter == -1, "Setting the diameter twice is likely wrong"
-            assert diameter <= self.number_of_triples, "the diameter of the query can never be larger than the number of triples"
-            self.diameter = diameter
-
-        def build(self) -> QueryData:
-            # checkign that everything is filled
-            assert (self.edge_index != -1).all()
-            assert (self.edge_type != -1).all()
-            assert (self.qualifiers != -1).all()
-            assert self.diameter != -1
-            assert self.targets is not None
-            return QueryData(self.edge_index, self.edge_type, self.qualifiers, self.targets, torch.as_tensor(self.diameter))
-
-        @staticmethod
-        def get_file_extension() -> str:
-            return ".pickle"
-
-        def store(self, collection: Iterable[QueryData], absolute_target_path: Path) -> None:
-            torch.save(collection, absolute_target_path, pickle_module=dill, pickle_protocol=dill.HIGHEST_PROTOCOL)
-    return TensorBuilder
-
-
-def protobufBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[BinaryFormBuilder[QueryData]]:
-
-    class ProtobufBuilder(BinaryFormBuilder[pb_Query]):
-
-        def __init__(self, numberOfTriples: int, numberOfQualifiers: int) -> None:
-            """
             Create
             """
-            super().__init__(numberOfTriples, numberOfQualifiers)
+            super().__init__(number_of_triples, number_of_qualifiers)
             self.query = pb_Query()
-            for _ in range(numberOfTriples):
+            for _ in range(number_of_triples):
                 self.query.triples.append(pb_Triple())
-            self._is_triple_set = [[False, False, False] for _ in range(numberOfTriples)]
-            for _ in range(numberOfQualifiers):
+            self._is_triple_set = [[False, False, False] for _ in range(number_of_triples)]
+            for _ in range(number_of_qualifiers):
                 self.query.qualifiers.append(pb_Qualifier())
-            self._is_qual_set = [[False, False] for _ in range(numberOfQualifiers)]
+            self._is_qual_set = [[False, False] for _ in range(number_of_qualifiers)]
             self.query.diameter = 0
-
-            # TODO the following comment was left here, but the variable is not used anywhere. Check whether it is needed.
-            # we need to keep track which qualifier we are putting where.
-            # This maps from a tuple (tripleIndex, index), where tripleIndex the index of the triple and index the rank of the qualifier,
-            # to the index of the forward edge qaulifier in self.quals. The reverse must be put at the offset numberOfQualifiers
-            # self.qual_mapping = {}
 
         def set_subject(self, index: int, entity: str) -> None:
             assert not self._is_triple_set[index][0], f"The subject for triple with index {index} has already been set"
@@ -559,13 +324,13 @@ def protobufBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[Binary
             assert not self._is_triple_set[index][2], f"The object for triple with index {index} has already been set"
             entity_index = entmap.lookup(entity)
             # we can be sure that the oneof has not been set because of the assert at the top of this method
-            self.query.triples[index].entity_object = entity_index
+            self.query.triples[index].object.entity = entity_index
             self._is_triple_set[index][2] = True
 
         def set_literal_object(self, index: int, literal_value: str) -> None:
             assert not self._is_triple_set[index][2], f"The object for triple with index {index} has already been set"
             # we can be sure that the oneof has not been set because of the assert at the top of this method
-            self.query.triples[index].literal_object = literal_value
+            self.query.triples[index].object.literal = literal_value
             self._is_triple_set[index][2] = True
 
         def set_predicate(self, index: int, predicate: str) -> None:
@@ -587,21 +352,41 @@ def protobufBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[Binary
             assert not self._is_qual_set[qualifier_index][1], f"The value for qualifier with index {qualifier_index} has already been set"
             valueIndex = entmap.lookup(value)
             # we can be sure that the oneof has not been set because of the assert at the top of this method
-            self.query.qualifiers[qualifier_index].qualifier_entity_value = valueIndex
+            self.query.qualifiers[qualifier_index].qualifier_value.entity = valueIndex
             self._is_qual_set[qualifier_index][1] = True
 
         def set_qualifier_literal_val(self, tripleIndex: int, qualifier_index: int, value: str) -> None:
             assert not self._is_qual_set[qualifier_index][1], f"The value for qualifier with index {qualifier_index} has already been set"
             # we can be sure that the oneof has not been set because of the assert at the top of this method
-            self.query.qualifiers[qualifier_index].qualifier_literal_value = value
+            self.query.qualifiers[qualifier_index].qualifier_value.literal = value
             self._is_qual_set[qualifier_index][1] = True
 
-        def set_targets(self, values: Iterable[str]) -> None:
-            assert len(self.query.targets) == 0, \
+        def _set_easy_targets(self, values: Iterable[pb_EntityOrLiteral]) -> None:
+            assert len(self.query.easy_targets) == 0, \
                 "the list of targets can only be set once. If it is needed to create this incrementally, this implementations can be changed to first collect and only create the tensor in the final build."
-            assert len(list(values)) == len(set(values)), f"Values must be a set, got {values}"
-            mapped = [entmap.lookup(value) for value in values]
-            self.query.targets.extend(mapped)
+            # TODO: this cannot be checked here since the pb types are not hashable!
+            # assert len(list(values)) == len(set(values)), f"Values must be a set, got {values}"
+            self.query.easy_targets.extend(values)
+
+        def set_easy_entity_targets(self, values: Iterable[str]) -> None:
+            self._set_easy_targets([pb_EntityOrLiteral(entity=entmap.lookup(value)) for value in values])
+
+        def set_easy_literal_targets(self, values: Iterable[str]) -> None:
+            self._set_easy_targets([pb_EntityOrLiteral(literal=value) for value in values])
+
+        def _set_hard_targets(self, values: Iterable[pb_EntityOrLiteral]) -> None:
+            assert len(self.query.hard_targets) == 0, \
+                "the list of targets can only be set once. If it is needed to create this incrementally, this implementations can be changed to first collect and only create the tensor in the final build."
+            # TODO: this cannot be checked here since the pb types are not hashable!
+            # assert len(list(values)) == len(set(values)), f"Values must be a set, got {values}"
+            assert len(list(values)) > 0, "Hard targets cannot be empty"
+            self.query.hard_targets.extend(values)
+
+        def set_hard_entity_targets(self, values: Iterable[str]) -> None:
+            self._set_hard_targets([pb_EntityOrLiteral(entity=entmap.lookup(value)) for value in values])
+
+        def set_hard_literal_targets(self, values: Iterable[str]) -> None:
+            self._set_hard_targets([pb_EntityOrLiteral(literal=value) for value in values])
 
         def set_diameter(self, diameter: int) -> None:
             assert self.query.diameter == 0, "Setting the diameter twice is likely wrong"
@@ -616,7 +401,7 @@ def protobufBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[Binary
             assert self.query.diameter != 0
             return self.query
 
-        @staticmethod
+        @ staticmethod
         def get_file_extension() -> str:
             return ".proto"
 
@@ -625,7 +410,142 @@ def protobufBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[Binary
             query_data.queries.extend(collection)
             with open(absolute_target_path, "wb") as output_file:
                 output_file.write(query_data.SerializeToString())
-    return ProtobufBuilder
+    return ProtobufQueryBuilder
+
+
+# def tensorBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[QueryBuilder[TorchQuery]]:
+#     raise NotImplementedError("The implementation of tensorbuilder still needs checking.")
+
+#     class TensorBuilder(QueryBuilder[TorchQuery]):
+#         """A builder for binary forms."""
+
+#         # This is a singleton used each time there are no qualifiers in the query
+#         __EMPTY_QUALIFIERS = torch.full((3, 0), -1, dtype=torch.long)
+
+#         targets: Optional[LongTensor]
+
+#         def __init__(self, number_of_triples: int, number_of_qualifiers: int) -> None:
+#             """
+#             Initialize the builder.
+#             """
+#             super().__init__(number_of_triples, number_of_qualifiers)
+#             self.number_of_triples = number_of_triples
+#             self.number_of_qualifiers = number_of_qualifiers
+#             # We initialize everything to -1. After adding the data there must not be a single -1 left.
+#             # Store the subject and object,
+#             self.edge_index = torch.full((2, number_of_triples), -1, dtype=torch.long)
+#             # Store the type of each edge,
+#             self.edge_type = torch.full((number_of_triples,), -1, dtype=torch.long)
+#             # Store all qualifiers. The first row has the qualifier relation, the second on the value and the third one the triple to which is belongs.
+#             if number_of_qualifiers == 0:
+#                 self.qualifiers = TensorBuilder.__EMPTY_QUALIFIERS
+#             else:
+#                 self.qualifiers = torch.full((3, number_of_qualifiers), -1, dtype=torch.long)
+#             # the diameter of the query
+#             self.diameter = -1
+#             # The targets of the query. This size is unknown upfront, so we will just create it when set
+#             self.targets = None
+#             self.qual_mapping_valid = True
+
+#         def set_subject(self, index: int, entity: str) -> None:
+#             entity_index = entmap.lookup(entity)
+#             # set normal edge
+#             self.set_subject_ID(index, entity_index)
+
+#         def set_subject_ID(self, index: int, entity_index: int) -> None:
+#             assert self.edge_index[0, index] == -1
+#             self.edge_index[0, index] = entity_index
+
+#         def set_entity_object(self, index: int, entity: str) -> None:
+#             entity_index = entmap.lookup(entity)
+#             # set normal edge
+#             self.set_object_ID(index, entity_index)
+
+#         def set_literal_object(self, index: int, entity: str) -> None:
+#             raise NotImplementedError("Tensor builder does not support literals, use protocol buffers.")
+
+#         def set_object_ID(self, index: int, entity_index: int) -> None:
+#             assert self.edge_index[1, index] == -1
+#             self.edge_index[1, index] = entity_index
+
+#         def set_predicate(self, index: int, predicate: str) -> None:
+#             # set normal edge
+#             predicate_index = relmap.lookup(predicate)
+#             self.set_predicate_ID(index, predicate_index)
+
+#         def set_predicate_ID(self, index: int, predicate_index: int) -> None:
+#             assert self.edge_type[index] == -1
+#             self.edge_type[index] = predicate_index
+
+#         def set_subject_predicate_object_ID(self, triple_index: int, subject: int, predicate: int, object: int) -> None:
+#             self.set_subject_ID(triple_index, subject)
+#             self.set_predicate_ID(triple_index, predicate)
+#             self.set_object_ID(triple_index, object)
+
+#         def set_qualifier_rel(self, triple_index: int, qualifier_index: int, predicate: str) -> None:
+#             # set forward
+#             predicate_index = relmap.lookup(predicate)
+#             self.qualifiers[0, qualifier_index] = predicate_index
+#             self.qualifiers[2, qualifier_index] = triple_index
+
+#         def set_qualifier_rel_ID(self, qualifier_index: int, predicateIndex: int, tripleIndex: int) -> None:
+#             """
+#             WARNING : if you use this method, you can no longer use the normal set_qualifier methods because
+#             this builder no longer has track of the indices
+#             """
+#             self.qual_mapping_valid = False
+#             self.qualifiers[0, qualifier_index] = predicateIndex
+#             self.qualifiers[2, qualifier_index] = tripleIndex
+
+#         def set_qualifier_entity_val(self, triple_index: int, qualifier_index: int, value: str) -> None:
+#             value_index = entmap.lookup(value)
+#             # set forward
+#             self.qualifiers[1, qualifier_index] = value_index
+
+#         def set_qualifier_literal_val(self, tripleIndex: int, index: int, value: str) -> None:
+#             raise NotImplementedError("Tensorbuilder does not support literal values, use protocol buffers.")
+
+#         def set_qualifier_val_ID(self, qualifier_index: int, value_index: int, tripleIndex: int) -> None:
+#             """
+#             .. warning ::
+#                 if you use this method, you can no longer use the normal set_qualifier methods because
+#                 this builder no longer has track of the indices
+#             """
+#             self.qual_mapping_valid = False
+#             self.qualifiers[1, qualifier_index] = value_index
+#             # note: tripleIndex is not set. We assume it is set in set_qualifier_rel_ID, eithe before or after this call.
+
+#         def set_targets(self, values: Iterable[str]) -> None:
+#             assert self.targets is None, "the list of targets can only be set once. If it is needed to create this incrementally, this implementations can be changed to first collect and only create the tensor in the final build."
+#             assert len(list(values)) == len(set(values)), f"Values must be a set got {values}"
+#             mapped = [entmap.lookup(value) for value in values]
+#             self.targets = torch.as_tensor(mapped, dtype=torch.long)
+
+#         def set_targets_ID(self, mapped: Iterable[int]) -> None:
+#             assert len(list(mapped)) == len(set(mapped))
+#             self.targets = torch.as_tensor(data=mapped, dtype=torch.long)
+
+#         def set_diameter(self, diameter: int) -> None:
+#             assert self.diameter == -1, "Setting the diameter twice is likely wrong"
+#             assert diameter <= self.number_of_triples, "the diameter of the query can never be larger than the number of triples"
+#             self.diameter = diameter
+
+#         def build(self) -> TorchQuery:
+#             # checkign that everything is filled
+#             assert (self.edge_index != -1).all()
+#             assert (self.edge_type != -1).all()
+#             assert (self.qualifiers != -1).all()
+#             assert self.diameter != -1
+#             assert self.targets is not None
+#             return TorchQuery(self.edge_index, self.edge_type, self.qualifiers, self.targets, torch.as_tensor(self.diameter))
+
+#         @ staticmethod
+#         def get_file_extension() -> str:
+#             return ".pickle"
+
+#         def store(self, collection: Iterable[TorchQuery], absolute_target_path: Path) -> None:
+#             torch.save(collection, absolute_target_path, pickle_module=dill, pickle_protocol=dill.HIGHEST_PROTOCOL)
+#     return TensorBuilder
 
 
 # @dataclasses.dataclass()
@@ -647,9 +567,9 @@ def protobufBuilder(entmap: EntityMapper, relmap: RelationMapper) -> Type[Binary
 #     sparql_endpoint_options = sparql_endpoint_options or default_sparql_endpoint_options
 
 #     class StrippedSPARQLResultBuilderClass(BinaryFormBuilder[str]):  # type: ignore
-#         def __init__(self, numberOfTriples, numberOfQualifiers) -> None:
+#         def __init__(self, number_of_triples, number_of_qualifiers) -> None:
 
-#             self.triples = [Triple(None, None, None) for _ in range(numberOfTriples)]
+#             self.triples = [Triple(None, None, None) for _ in range(number_of_triples)]
 
 #         def set_subject(self, index: int, entity: str) -> None:
 #             self.triples[index].subject = entity

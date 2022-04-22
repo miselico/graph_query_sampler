@@ -44,7 +44,7 @@ jobs:
           flake8 src tests
       - name: Check typing with mypy
         run: |
-          mypy --strict --install-types --non-interactive src tests
+          mypy --strict src tests
       - name: Test with pytest
         run: |
           py.test tests -m "not full_data"
