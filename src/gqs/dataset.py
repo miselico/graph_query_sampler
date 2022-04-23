@@ -1,7 +1,9 @@
 
 from pathlib import Path
 import re
-from typing import Tuple
+from typing import Optional, Tuple
+
+import gqs.mapping
 
 
 def valid_name(name: str) -> Tuple[bool, str]:
@@ -16,6 +18,7 @@ class Dataset:
         valid, expl = valid_name(dataset_name)
         assert valid, expl
         self.name = dataset_name
+        self._mappers: Optional[Tuple[gqs.mapping.RelationMapper, gqs.mapping.EntityMapper]] = None
 
     def location(self) -> Path:
         return (Path("./datasets") / self.name).resolve()
@@ -70,6 +73,13 @@ class Dataset:
 
     def relation_mapping_location(self) -> Path:
         return self.mapping_location() / "relations.txt"
+
+    def get_mappers(self) -> Tuple["gqs.mapping.RelationMapper", "gqs.mapping.EntityMapper"]:
+        # lazy initialization
+        if self._mappers is None:
+            self._mappers = gqs.mapping.get_mappers(self)
+        assert self._mappers is not None
+        return self._mappers
 
     def graphDB_repositoryID(self) -> str:
         return "gqs-" + self.name

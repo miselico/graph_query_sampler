@@ -5,7 +5,7 @@ from typing import Sequence
 
 import click
 from gqs import dataset_split, split_to_triple_store, sample_queries, mapping as gqs_mapping
-from gqs.conversion import convert_all, protobufBuilder
+from gqs.conversion import convert_all, protobuf_builder
 from gqs.dataset import Dataset
 
 from ._sparql_execution import execute_sparql_to_result_silenced
@@ -230,9 +230,9 @@ def convert() -> None:
 def csv_to_proto(dataset: Dataset) -> None:
     """Convert the textual query results to index-based in protobuffer format.."""
     assert gqs_mapping.mapping_exists(dataset), "Before converting, you have to create a mapping"
-    relmap, entmap = gqs_mapping.get_mappers(dataset)
+    relmap, entmap = dataset.get_mappers()
     convert_all(
         source_directory=dataset.query_csv_location(),
         target_directory=dataset.query_proto_location(),
-        builder=protobufBuilder(relmap=relmap, entmap=entmap)
+        builder=protobuf_builder(relmap=relmap, entmap=entmap)
     )

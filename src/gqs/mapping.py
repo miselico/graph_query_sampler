@@ -4,7 +4,7 @@
 import logging
 import pathlib
 from typing import Any, Dict, Iterable, Tuple
-from .dataset import Dataset
+import gqs.dataset
 
 from ._sparql_execution import execute_sparql_to_result_silenced
 
@@ -174,6 +174,9 @@ class EntityMapper:
         Then infinite reified statements [{self.reified_statements_start}, ...]
         """
 
+    def number_of_entities_without_vars_targets_and_reified_statements(self) -> int:
+        return self._relation_entity_end
+
     def lookup(self, entity: str) -> int:
         """Lookup the ID of an entity."""
         index = self._entitiy_and_var_mapping.get(entity)
@@ -278,7 +281,7 @@ class EntityMapper:
     #     return self._normal_entity_end + 3  # 3 = target/variable/reification blank node
 
 
-def create_mapping(dataset: Dataset, sparql_endpoint: str, sparql_endpoint_options: Dict[str, Any]) -> None:
+def create_mapping(dataset: "gqs.dataset.Dataset", sparql_endpoint: str, sparql_endpoint_options: Dict[str, Any]) -> None:
     def query_entities_to_file(query: str, file: pathlib.Path, var: str) -> None:
         entities = []
         for result in execute_sparql_to_result_silenced(query, sparql_endpoint, sparql_endpoint_options):
@@ -310,14 +313,14 @@ def create_mapping(dataset: Dataset, sparql_endpoint: str, sparql_endpoint_optio
     query_entities_to_file(relations_query, dataset.relation_mapping_location(), "relation")
 
 
-def remove_mapping(dataset: Dataset) -> None:
+def remove_mapping(dataset: "gqs.dataset.Dataset") -> None:
     dataset.relation_mapping_location().unlink(missing_ok=True)
     dataset.entity_mapping_location().unlink(missing_ok=True)
     if dataset.mapping_location().exists():
         dataset.mapping_location().rmdir()
 
 
-def mapping_exists(dataset: Dataset) -> bool:
+def mapping_exists(dataset: "gqs.dataset.Dataset") -> bool:
     if not dataset.mapping_location().exists():
         return False
     if not (dataset.relation_mapping_location().is_file() and dataset.relation_mapping_location().exists()):
@@ -332,19 +335,19 @@ def mapping_exists(dataset: Dataset) -> bool:
     #     dataset.mapping_location().rmdir()
 
 
-def get_mappers(dataset: Dataset) -> Tuple[RelationMapper, EntityMapper]:
+def get_mappers(dataset: "gqs.dataset.Dataset") -> Tuple[RelationMapper, EntityMapper]:
     relmap = get_relation_mapper(dataset)
     entmap = get_entity_mapper(dataset, relmap)
     return relmap, entmap
 
 
-def get_relation_mapper(dataset: Dataset) -> RelationMapper:
+def get_relation_mapper(dataset: "gqs.dataset.Dataset") -> RelationMapper:
     with open(dataset.relation_mapping_location()) as relation_file:
         relations = [relation.strip() for relation in relation_file.readlines()]
         return RelationMapper(relations)
 
 
-def get_entity_mapper(dataset: Dataset, relmap: RelationMapper) -> EntityMapper:
+def get_entity_mapper(dataset: "gqs.dataset.Dataset", relmap: RelationMapper) -> EntityMapper:
     with open(dataset.entity_mapping_location()) as entity_file:
         entities = [entity.strip() for entity in entity_file.readlines()]
         return EntityMapper(entities, relmap)
