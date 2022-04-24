@@ -1,0 +1,44 @@
+SELECT DISTINCT ?s0 ?p0 (group_concat(distinct ?o0_o1_o2; separator="|") AS ?o0_o1_o2_targets)  ?s1 ?p1 ?s2 ?p2 ?diameter
+
+WHERE {
+
+	BIND (1 as ?diameter)
+    {
+        graph ?g0 {
+            ?s0 ?p0 ?o0_o1_o2 .
+        }
+        graph ?g1 {
+            ?s1 ?p1 ?o0_o1_o2 .
+        }
+        graph ?g2 {
+            ?s2 ?p2 ?o0_o1_o2 .
+        }
+
+        FILTER (
+            (?g0 = <split:validation> && ?g1 = <split:train-validation> && ?g2 = <split:train-validation>) ||
+            (?g0 = <split:train-validation> && ?g1 = <split:validation> && ?g2 = <split:train-validation>) ||
+            (?g0 = <split:train-validation> && ?g1 = <split:train-validation> && ?g2 = <split:validation>)
+        )
+
+    }
+
+
+
+
+    #Make sure all 3 incoming edges are different, to avoid degrading to 2i or one hop
+    FILTER(!(?s0=?s1 && ?p0=?p1))
+    FILTER(!(?s0=?s2 && ?p0=?p2))
+    FILTER(!(?s1=?s2 && ?p1=?p2))
+
+    #getting rid of permutations of the incoming edges
+    FILTER(str(?s0) < str(?s1) || (str(?s0)=str(?s1) && str(?p0) < str(?p1)))
+    FILTER(str(?s1) < str(?s2) || (str(?s1)=str(?s2) && str(?p1) < str(?p2)))
+
+    FILTER(isIRI(?s0) && isIRI(?s1) && isIRI(?s2) && isIRI(?o0_o1_o2))
+
+
+
+
+
+
+} GROUP BY ?s0 ?p0 ?s1 ?p1 ?s2 ?p2 ?diameter

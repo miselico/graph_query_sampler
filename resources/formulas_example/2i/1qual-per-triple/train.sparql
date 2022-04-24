@@ -1,0 +1,26 @@
+select distinct ?s0 ?p0 ?s1 ?p1  (group_concat(distinct ?o0_o1; SEPARATOR="|") as ?o0_o1_targets) ?qr0i0 ?qv0i0 ?qr1i1 ?qv1i1 ?diameter
+where
+{
+    values (?diameter){
+        (1)
+    }
+    graph <split:train> {
+        << ?s0 ?p0 ?o0_o1 >> ?qr0i0 ?qv0i0 .
+        << ?s1 ?p1 ?o0_o1 >> ?qr1i1 ?qv1i1
+    }
+    #filtering out 2i queries that collapse to one hop queries
+    FILTER (!(?s0 = ?s1 && ?p0 = ?p1))
+
+    #this filtetering helps us getting rid of permutations
+    FILTER(str(?s0) < str(?s1) || (str(?s0)=str(?s1) && str(?p0) < str(?p1) ))
+
+    FILTER  (isIRI(?s0) && isIRI(?s1) && isIRI(?o0_o1))
+
+
+### restrictions ###
+
+}
+GROUP BY?s0 ?p0 ?s1 ?p1 ?qr0i0 ?qv0i0 ?qr1i1 ?qv1i1 ?diameter
+
+
+

@@ -1,0 +1,36 @@
+select distinct ?s0 ?p0 ?s1 ?p1  (group_concat(distinct ?o0_o1; SEPARATOR="|") as ?o0_o1_targets) ?diameter
+where
+{
+    values (?diameter){
+        (1)
+    }
+    {
+        graph ?g0 {
+            ?s0 ?p0 ?o0_o1 .
+        }
+        graph ?g1 {
+            ?s1 ?p1 ?o0_o1 .
+        }
+
+        FILTER (
+            (?g0 = <split:validation> && ?g1 = <split:train-validation> ) ||
+            (?g0 = <split:train-validation> && ?g1 = <split:validation> )
+        )
+    }
+
+    #filtering out 2i queries that collapse to one hop queries
+    FILTER (!(?s0 = ?s1 && ?p0 = ?p1))
+
+    #this filtetering helps us getting rid of permutations
+    FILTER(str(?s0) < str(?s1) || (str(?s0)=str(?s1) && str(?p0) < str(?p1) ))
+
+    FILTER  (isIRI(?s0) && isIRI(?s1) && isIRI(?o0_o1))
+
+
+### restrictions ###
+
+}
+GROUP BY?s0 ?p0 ?s1 ?p1 ?diameter
+
+
+

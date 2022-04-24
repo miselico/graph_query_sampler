@@ -1,0 +1,37 @@
+SELECT DISTINCT ?s0 ?p0 ?o0_o1_s2_var ?s1 ?p1 ?p2 (group_concat(distinct ?o2; separator="|") AS ?o2_targets) ?diameter WHERE {
+	BIND ("?var0" as ?o0_o1_s2_var)
+	BIND (2 as ?diameter)
+
+    {
+        graph ?g0 {
+            ?s0 ?p0 ?o0_o1_s2 .
+        }
+        graph ?g1 {
+            ?s1 ?p1 ?o0_o1_s2 .
+        }
+        graph ?g2 {
+            ?o0_o1_s2 ?p2 ?o2
+        }
+
+        FILTER (
+            (?g0 = <split:validation> && ?g1 = <split:train-validation> && ?g2 = <split:train-validation>) ||
+            (?g0 = <split:train-validation> && ?g1 = <split:validation> && ?g2 = <split:train-validation>) ||
+            (?g0 = <split:train-validation> && ?g1 = <split:train-validation> && ?g2 = <split:validation>)
+        )
+    }
+
+
+    #Prevent collapsing to 2 hop
+	FILTER(!(?s0=?s1 && ?p0=?p1))
+	#Prevent multiple permutations
+	FILTER(str(?s0) < str(?s1) ||
+              (str(?s0)=str(?s1) && str(?p0) < str(?p1) ))
+	FILTER(isIRI(?s0) && isIRI(?s1) && isIRI(?o0_o1_s2) && isIRI(?o2))
+
+
+
+       #     #filter out the nodes with an in degree >= 50
+
+
+
+} GROUP BY ?s0 ?p0 ?o0_o1_s2_var ?s1 ?p1 ?p2 ?diameter

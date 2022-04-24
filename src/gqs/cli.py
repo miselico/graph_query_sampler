@@ -1,4 +1,5 @@
 import logging
+import os
 import pathlib
 import shutil
 from typing import Sequence
@@ -167,9 +168,23 @@ def formulas() -> None:
 
 @formulas.command(name="copy", help="Copy raw formulas to the dataset directory. These can then be changed.")
 @option_dataset
-@click.option("--formulas", help="The directory with raw formulas to copy to this dataset", type=pathlib.Path, required=True)
-def copy_formulas(dataset: Dataset, formulas: pathlib.Path) -> None:
-    shutil.copytree(formulas, dataset.raw_formulas_location())
+@click.option("--formula-root", help="The root directory with the formulas to be copied to the dataset", type=pathlib.Path, required=True)
+@click.option("--formula-glob", help="A glob pattern relative to --formula-root to select the fomulas to be copied, for patterns see https://docs.python.org/3.10/library/pathlib.html#pathlib.Path.glob", type=str, default="**/*")
+@click.option("--force", is_flag=True, help="Continue even if there already are formulas in the dataset. This will overwrite without asking when the same files are copied again! Use with care.", type=bool, default=False)
+def copy_formulas(dataset: Dataset, formula_root: pathlib.Path, formula_glob: str, force: bool) -> None:
+    source_root = pathlib.Path(formula_root).resolve()
+    target_root = dataset.raw_formulas_location()
+
+    if not force and target_root.exists():
+        if os.listdir(target_root):
+            raise Exception("There are existing formulas in the dataset. Use --force to force merging and overwriting.")
+
+    for source in source_root.glob(formula_glob):
+        if source.is_file():
+            relative_path = source.relative_to(source_root)
+            target = target_root / relative_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
 
 
 @formulas.command(name="add-constraints", help="Preprocess the formulas to add data specific restrictions")
