@@ -302,7 +302,7 @@ def convert_all(
             raise
 
 
-def protobuf_builder(entmap: EntityMapper, relmap: RelationMapper) -> Type[QueryBuilder[pb_Query]]:
+def protobuf_builder(relmap: RelationMapper, entmap: EntityMapper) -> Type[QueryBuilder[pb_Query]]:
 
     class ProtobufQueryBuilder(QueryBuilder[pb_Query]):
 
