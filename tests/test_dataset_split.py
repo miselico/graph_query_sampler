@@ -6,15 +6,7 @@ import gqs.dataset_split as dataset_split
 import pytest
 from gqs.dataset import Dataset
 
-
-class MockDataset(Dataset):
-    def __init__(self, tmp_path: pathlib.Path) -> None:
-        super().__init__("dataset_name")
-        self.tmp_path = pathlib.Path(tmp_path)
-
-    def location(self) -> pathlib.Path:
-        """For testing we override the location to a tmp directory"""
-        return (self.tmp_path / "datasets" / self.name).resolve()
+from mock_dataset import MockDataset
 
 
 @pytest.fixture(autouse=True)

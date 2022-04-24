@@ -342,12 +342,16 @@ def get_mappers(dataset: "gqs.dataset.Dataset") -> Tuple[RelationMapper, EntityM
 
 
 def get_relation_mapper(dataset: "gqs.dataset.Dataset") -> RelationMapper:
+    if not dataset.relation_mapping_location().exists():
+        raise Exception("Trying to create a relation mapper, but the mapping has not been created yet.")
     with open(dataset.relation_mapping_location()) as relation_file:
         relations = [relation.strip() for relation in relation_file.readlines()]
         return RelationMapper(relations)
 
 
 def get_entity_mapper(dataset: "gqs.dataset.Dataset", relmap: RelationMapper) -> EntityMapper:
+    if not dataset.entity_mapping_location().exists():
+        raise Exception("Trying to create an entity mapper, but the mapping has not been created yet.")
     with open(dataset.entity_mapping_location()) as entity_file:
         entities = [entity.strip() for entity in entity_file.readlines()]
         return EntityMapper(entities, relmap)
