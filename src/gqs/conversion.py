@@ -420,9 +420,33 @@ def protobuf_builder(entmap: EntityMapper, relmap: RelationMapper) -> Type[Query
     return ProtobufQueryBuilder
 
 
-def torch_query_builder(entmap: EntityMapper, relmap: RelationMapper) -> Type[QueryBuilder[TorchQuery]]:
+class TorchQueryBuilder(QueryBuilder[TorchQuery]):
+    @abstractmethod
+    def set_subject_predicate_entitiy_object_ID(self, triple_index: int, subject: int, predicate: int, object: int) -> None:
+        raise NotImplementedError()
 
-    class TorchQueryBuilder(QueryBuilder[TorchQuery]):
+    @abstractmethod
+    def set_easy_entity_targets_ID(self, mapped: Iterable[int]) -> None:
+        pass
+
+    @abstractmethod
+    def set_hard_entity_targets_ID(self, mapped: Iterable[int]) -> None:
+        pass
+
+    @abstractmethod
+    def set_qualifier_rel_ID(self, qualifier_index: int, predicateIndex: int, tripleIndex: int) -> None:
+        pass
+
+    @abstractmethod
+    def set_qualifier_entity_val_ID(self, qualifier_index: int, value_index: int, tripleIndex: int) -> None:
+        pass
+
+
+def torch_query_builder(relmap: Optional[RelationMapper], entmap: Optional[EntityMapper],) -> Type[TorchQueryBuilder]:
+    """Create a new builder class which has to be instantiated for each query to be built.
+        If the relmap and entmap are None, then calling any of the methods which needs mapping (all of these which take entities as str argments) will raise an Exception
+    """
+    class _TorchQueryBuilder(TorchQueryBuilder):
         """A builder for binary forms."""
 
         # This is a singleton used each time there are no qualifiers in the query
@@ -444,7 +468,7 @@ def torch_query_builder(entmap: EntityMapper, relmap: RelationMapper) -> Type[Qu
             self.edge_type = torch.full((number_of_triples,), -1, dtype=torch.long)
             # Store all qualifiers. The first row has the qualifier relation, the second one the value and the third one the triple to which it belongs.
             if number_of_qualifiers == 0:
-                self.qualifiers = TorchQueryBuilder.__EMPTY_QUALIFIERS
+                self.qualifiers = _TorchQueryBuilder.__EMPTY_QUALIFIERS
             else:
                 self.qualifiers = torch.full((3, number_of_qualifiers), -1, dtype=torch.long)
             # the diameter of the query
@@ -454,6 +478,7 @@ def torch_query_builder(entmap: EntityMapper, relmap: RelationMapper) -> Type[Qu
             self.hard_targets: Optional[torch.Tensor] = None
 
         def set_subject(self, index: int, entity: str) -> None:
+            assert entmap is not None
             entity_index = entmap.lookup(entity)
             # set normal edge
             self.set_subject_ID(index, entity_index)
@@ -463,6 +488,7 @@ def torch_query_builder(entmap: EntityMapper, relmap: RelationMapper) -> Type[Qu
             self.edge_index[0, index] = entity_index
 
         def set_entity_object(self, index: int, entity: str) -> None:
+            assert entmap is not None
             entity_index = entmap.lookup(entity)
             # set normal edge
             self.set_entity_object_ID(index, entity_index)
@@ -476,6 +502,7 @@ def torch_query_builder(entmap: EntityMapper, relmap: RelationMapper) -> Type[Qu
 
         def set_predicate(self, index: int, predicate: str) -> None:
             # set normal edge
+            assert relmap is not None
             predicate_index = relmap.lookup(predicate)
             self.set_predicate_ID(index, predicate_index)
 
@@ -490,6 +517,7 @@ def torch_query_builder(entmap: EntityMapper, relmap: RelationMapper) -> Type[Qu
 
         def set_qualifier_rel(self, triple_index: int, qualifier_index: int, predicate: str) -> None:
             # set forward
+            assert relmap is not None
             predicate_index = relmap.lookup(predicate)
             self.qualifiers[0, qualifier_index] = predicate_index
             self.qualifiers[2, qualifier_index] = triple_index
@@ -499,24 +527,22 @@ def torch_query_builder(entmap: EntityMapper, relmap: RelationMapper) -> Type[Qu
             self.qualifiers[2, qualifier_index] = tripleIndex
 
         def set_qualifier_entity_val(self, triple_index: int, qualifier_index: int, value: str) -> None:
+            assert entmap is not None
             value_index = entmap.lookup(value)
             # set forward
             self.qualifiers[1, qualifier_index] = value_index
 
-        def set_qualifier_literal_val(self, tripleIndex: int, index: int, value: str) -> None:
-            raise NotImplementedError("TensorBuilder does not support literal values, use protocol buffers.")
-
-        def set_qualifier_val_ID(self, qualifier_index: int, value_index: int, tripleIndex: int) -> None:
+        def set_qualifier_entity_val_ID(self, qualifier_index: int, value_index: int, tripleIndex: int) -> None:
             self.qualifiers[1, qualifier_index] = value_index
             # note: tripleIndex is not set. We assume it is set in set_qualifier_rel_ID, eithe before or after this call.
 
-        def OLDset_targets_ID(self, mapped: Iterable[int]) -> None:
-            assert len(list(mapped)) == len(set(mapped))
-            self.targets = torch.as_tensor(data=mapped, dtype=torch.long)
+        def set_qualifier_literal_val(self, tripleIndex: int, index: int, value: str) -> None:
+            raise NotImplementedError("TensorBuilder does not support literal values, use protocol buffers.")
 
         def set_easy_entity_targets(self, values: Iterable[str]) -> None:
             assert self.easy_targets is None, "the list of targets can only be set once. If it is needed to create this incrementally, this implementations can be changed to first collect and only create the tensor in the final build."
             assert len(list(values)) == len(set(values)), f"Values must be a set got {values}"
+            assert entmap is not None
             mapped = [entmap.lookup(value) for value in values]
             self.set_easy_entity_targets_ID(mapped)
 
@@ -530,6 +556,7 @@ def torch_query_builder(entmap: EntityMapper, relmap: RelationMapper) -> Type[Qu
         def set_hard_entity_targets(self, values: Iterable[str]) -> None:
             assert self.hard_targets is None, "the list of targets can only be set once. If it is needed to create this incrementally, this implementations can be changed to first collect and only create the tensor in the final build."
             assert len(list(values)) == len(set(values)), f"Values must be a set got {values}"
+            assert entmap is not None
             mapped = [entmap.lookup(value) for value in values]
             self.set_hard_entity_targets_ID(mapped)
 
@@ -562,7 +589,7 @@ def torch_query_builder(entmap: EntityMapper, relmap: RelationMapper) -> Type[Qu
 
         def store(self, collection: Iterable[TorchQuery], absolute_target_path: Path) -> None:
             torch.save(collection, absolute_target_path, pickle_module=dill, pickle_protocol=dill.HIGHEST_PROTOCOL)
-    return TorchQueryBuilder
+    return _TorchQueryBuilder
 
 
 # @dataclasses.dataclass()
