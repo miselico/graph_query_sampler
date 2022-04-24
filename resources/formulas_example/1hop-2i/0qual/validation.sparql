@@ -1,0 +1,51 @@
+#this was modified from 2i. The extra 1 hop is the triple with index 2.
+
+select distinct  ?s2 ?p2 ?o2_s0_var ?p0 ?s1 ?p1  (group_concat(distinct ?o0_o1; SEPARATOR="|") as ?o0_o1_targets) ?diameter
+where
+{
+    values (?diameter){
+        (2)
+    }
+    values (?o2_s0_var){
+        ("?var0")
+    }
+
+    {
+        graph ?g2 {
+             ?s2 ?p2 ?o2_s0 .
+        }
+        graph ?g0 {
+            ?o2_s0 ?p0 ?o0_o1 .
+        }
+        graph ?g1 {
+            ?s1 ?p1 ?o0_o1 .
+        }
+
+        FILTER (
+            (?g0 = <split:validation> && ?g1 = <split:train-validation> && ?g2 = <split:train-validation>) ||
+            (?g0 = <split:train-validation> && ?g1 = <split:validation> && ?g2 = <split:train-validation>) ||
+            (?g0 = <split:train-validation> && ?g1 = <split:train-validation> && ?g2 = <split:validation>)
+        )
+    }
+
+
+
+
+    #filtering out 1hop-2i queries that collapse to two hop queries
+    FILTER (!(?o2_s0 = ?s1 && ?p0 = ?p1))
+    # preventing permutations. These can only happen in case the s1 and o2_s0 are the same node
+    FILTER ((?s1 != ?o2_s0) || (?s1 = ?o2_s0 && str(?p0)< str(?1) ))
+
+    FILTER  (isIRI(?s2) && isIRI(?o2_s0) && isIRI(?s1) && isIRI(?o0_o1))
+
+
+#     #filter out the nodes with an in degree >= 50
+
+
+### restrictions ###
+
+}
+GROUP BY?s2 ?p2 ?o2_s0_var ?p0 ?s1 ?p1 ?diameter
+
+
+

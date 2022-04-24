@@ -1,0 +1,9 @@
+{
+    "restrictions": [
+        {
+            "type": "max_indegree",
+            "variable": "?o0_o1",
+            "maximum": 50
+        }
+    ]
+}

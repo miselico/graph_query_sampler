@@ -25,12 +25,12 @@ When using the command line tool, you can always see more information and option
 1. Install graphDB. You need to configure it with a lot of memory for the query sampler.
 2. Initialize the folder for your dataset. Specify your nt file and the name you want to use for your dataset, which can only contain lowercase characters.
 ```bash
-$ gqs init --input harrypotter.nt --dataset harrypotter
+gqs init --input harrypotter.nt --dataset harrypotter
 ```
 This will create a new folder with the name of your dataset under the folder called datasets. All data related to the query sampling will be stored in that folder.
 3. Split the dataset in train, validation and test. There are several options for the splitting, but  here we just do round-robin
 ```bash
-$ gqs split round-robin --dataset harrypotter
+gqs split round-robin --dataset harrypotter
 ```
 4. Store the splits in the triple store:
 ```bash
@@ -42,9 +42,9 @@ gqs mapping create --dataset harrypotter
 ```
 6. Configure the formulas you want to use for sampling.
 Make sure that the formulas are adapted to what you need, check the shapes and configurations.
-Then copy them as follows, the `--formulas` argument specifies the directory with formulas.
+Then copy them as follows, the `--formula-root` argument specifies the directory with formulas, the glob pattern specifies the files within that directory.
 ```bash
-gqs formulas copy --formulas  resources.formulas/ --dataset harrypotter
+gqs formulas copy --formula-root ./resources/formulas_example/ --formula-glob '**/0qual//**/*'  --dataset harrypotter
 ```
 7. Apply the constraints to the queries with:
 ```bash
@@ -52,7 +52,7 @@ gqs formulas add-constraints --dataset harrypotter
 ```
 8. Sample the queries from the triple store.
 ```bash
-gqs sample create --dataset harrypotter
+$ gqs sample create --dataset harrypotter
 ```
 9. To use the queries, we convert them to protocol buffers
 ```bash
