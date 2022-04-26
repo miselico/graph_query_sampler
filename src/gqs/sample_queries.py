@@ -66,7 +66,7 @@ def preprocess_formulas(dataset: Dataset, sparql_endpoint: str, sparql_endpoint_
                     graph <split:all> {
                         ?s ?p ?entity .
                         }
-                        isIRI(?entity)
+                        FILTER(isIRI(?entity))
                     } group by ?entity
                     having (count(?entity) > ''' + str(restriction["maximum"]) + ' )'
             elif restriction["type"] == "max_outdegree":
@@ -75,7 +75,7 @@ def preprocess_formulas(dataset: Dataset, sparql_endpoint: str, sparql_endpoint_
                     graph <split:all> {
                         ?entity ?p ?o .
                         }
-                        isIRI(?entity)
+                        FILTER(isIRI(?entity))
                     } group by ?entity
                     having (count(?entity) > ''' + str(restriction["maximum"]) + ' )'
             else:
