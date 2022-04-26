@@ -50,16 +50,27 @@ option_seed = click.option(
 @main.command(name="init", help="Initialize the datset directory")
 @click.option('--input', type=pathlib.Path, help='The original data file in n-triples format, lines starting with # are ignored', required=True)
 @option_dataset
-def init(input: pathlib.Path, dataset: Dataset) -> None:
+@click.option("--keep-blank-nodes", is_flag=True, help="Whether to remove blank nodes while copying the data. Keeping them will most likely lead to incorrect results. Use with care.", type=bool, default=False)
+@click.option("--force", is_flag=True, help="Continue even if the file exists. ", type=bool, default=False)
+def init(input: pathlib.Path, dataset: Dataset, keep_blank_nodes: bool = True, force: bool = False) -> None:
     # create the dataset folder
-    if dataset.location().exists():
+    if not force and dataset.location().exists():
         raise Exception(f"The directory for {dataset} already exists ({dataset.location()}), remove it first")
-    dataset.location().mkdir(parents=True)
+    dataset.location().mkdir(parents=True, exist_ok=force)
     # copy the dataset to the folder 'raw' under the dataset folder
-    dataset.raw_location().mkdir(parents=True)
-    shutil.copy2(str(input), dataset.raw_location())
-    # create other directories
-    dataset.splits_location().mkdir(parents=True)
+    dataset.raw_location().mkdir(parents=True, exist_ok=force)
+    output_file = dataset.raw_location() / input.name
+    with open(input, 'rt') as open_input:
+        with open(output_file, 'wt') as open_output:
+            for line_number, line in enumerate(open_input):
+                if not line.strip().startswith('#'):
+                    # check this line
+                    contains_blank_node = any([entity.startswith("_:") for entity in line.split()])
+                    if contains_blank_node and not keep_blank_nodes:
+                        msg = f'The input files had a blank node on line {line_number}, this line was ignored'
+                        logger.warn(msg)
+                        continue
+                    open_output.write(line)
 
 
 @main.group()
