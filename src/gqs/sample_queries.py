@@ -199,7 +199,7 @@ def sample_queries(
         # TODO: Code duplication to converter.py
 
         # get absolute source path
-        relative_source_path = query_file_path.relative_to(formulas_directory)
+        relative_source_path = query_file_path.relative_to(formulas_directory).resolve()
         relative_source_directory = relative_source_path.parent
 
         # compute the destination path
@@ -355,7 +355,7 @@ def _separate_hard_and_easy_targets(raw_query_directory: Path, target_path: Path
 def _write_dataframe_to_compressed_csv(dataframe: pd.DataFrame, file_without_gz: Path) -> None:
     name = file_without_gz.name
     with_gz = name + ".gz"
-    file_with_gz = file_without_gz.parent / with_gz
+    file_with_gz = file_without_gz.resolve().parent / with_gz
     dataframe.to_csv(file_with_gz, compression="gzip")
 
 
