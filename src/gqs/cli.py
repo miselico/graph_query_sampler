@@ -7,7 +7,7 @@ from typing import Sequence
 import click
 from gqs import dataset_split, split_to_triple_store, sample_queries, mapping as gqs_mapping
 from gqs.conversion import convert_all, protobuf_builder
-from gqs.dataset import Dataset
+from gqs.dataset import Dataset, initialize_dataset
 
 from ._sparql_execution import execute_sparql_to_result_silenced
 
@@ -51,26 +51,8 @@ option_seed = click.option(
 @click.option('--input', type=pathlib.Path, help='The original data file in n-triples format, lines starting with # are ignored', required=True)
 @option_dataset
 @click.option("--keep-blank-nodes", is_flag=True, help="Whether to remove blank nodes while copying the data. Keeping them will most likely lead to incorrect results. Use with care.", type=bool, default=False)
-@click.option("--force", is_flag=True, help="Continue even if the file exists. ", type=bool, default=False)
-def init(input: pathlib.Path, dataset: Dataset, keep_blank_nodes: bool = True, force: bool = False) -> None:
-    # create the dataset folder
-    if not force and dataset.location().exists():
-        raise Exception(f"The directory for {dataset} already exists ({dataset.location()}), remove it first")
-    dataset.location().mkdir(parents=True, exist_ok=force)
-    # copy the dataset to the folder 'raw' under the dataset folder
-    dataset.raw_location().mkdir(parents=True, exist_ok=force)
-    output_file = dataset.raw_location() / input.name
-    with open(input, 'rt') as open_input:
-        with open(output_file, 'wt') as open_output:
-            for line_number, line in enumerate(open_input):
-                if not line.strip().startswith('#'):
-                    # check this line
-                    contains_blank_node = any([entity.startswith("_:") for entity in line.split()])
-                    if contains_blank_node and not keep_blank_nodes:
-                        msg = f'The input files had a blank node on line {line_number}, this line was ignored'
-                        logger.warn(msg)
-                        continue
-                    open_output.write(line)
+def init(input: pathlib.Path, dataset: Dataset, keep_blank_nodes: bool = True) -> None:
+    initialize_dataset(input, dataset, keep_blank_nodes)
 
 
 @main.group()

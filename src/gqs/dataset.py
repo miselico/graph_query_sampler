@@ -2,8 +2,10 @@
 from pathlib import Path
 import re
 from typing import Optional, Tuple
-
+import logging
 import gqs.mapping
+
+logger = logging.getLogger(__file__)
 
 
 def valid_name(name: str) -> Tuple[bool, str]:
@@ -89,3 +91,24 @@ class Dataset:
 
     def __str__(self) -> str:
         return f"Dataset({self.name})"
+
+
+def initialize_dataset(input: Path, dataset: Dataset, keep_blank_nodes: bool = True) -> None:
+    # create the dataset folder
+    if dataset.location().exists():
+        raise Exception(f"The directory for {dataset} already exists ({dataset.location()}), remove it first")
+    dataset.location().mkdir(parents=True)
+    # copy the dataset to the folder 'raw' under the dataset folder
+    dataset.raw_location().mkdir(parents=True)
+    output_file = dataset.raw_location() / input.name
+    with open(input, 'rt') as open_input:
+        with open(output_file, 'wt') as open_output:
+            for line_number, line in enumerate(open_input):
+                if not line.strip().startswith('#'):
+                    # check this line
+                    contains_blank_node = any([entity.startswith("_:") for entity in line.split()])
+                    if contains_blank_node and not keep_blank_nodes:
+                        msg = f'The input files had a blank node on line {line_number}, this line was ignored'
+                        logger.warn(msg)
+                        continue
+                    open_output.write(line)
