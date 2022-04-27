@@ -194,6 +194,7 @@ def copy_formulas(dataset: Dataset, formula_root: pathlib.Path, formula_glob: st
         if source.is_file():
             relative_path = source.relative_to(source_root)
             target = target_root / relative_path
+            target = target.resolve()
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
 
