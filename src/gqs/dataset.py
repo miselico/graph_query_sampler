@@ -1,7 +1,9 @@
 
+from enum import Enum
+import hashlib
 from pathlib import Path
 import re
-from typing import Optional, Tuple
+from typing import Callable, List, MutableMapping, Optional, TextIO, Tuple
 import logging
 import gqs.mapping
 
@@ -29,9 +31,12 @@ class Dataset:
         return self.location() / "rawdata/"
 
     def raw_input_file(self) -> Path:
-        files = [f for f in self.raw_location().iterdir()]
-        assert len(files) == 1, f"There is not exactly 1 file in the raw data directory {self.raw_location()}, aborting"
+        files = [f for f in self.raw_location().iterdir() if f.suffix == ".nt"]
+        assert len(files) == 1, f"There is not exactly 1 .nt file in the raw data directory {self.raw_location()}, aborting"
         return files[0]
+
+    def blank_node_map_location(self) -> Path:
+        return self.raw_location() / "blank_node_map.txt"
 
     def splits_location(self) -> Path:
         return self.location() / "splits"
@@ -93,22 +98,97 @@ class Dataset:
         return f"Dataset({self.name})"
 
 
-def initialize_dataset(input: Path, dataset: Dataset, keep_blank_nodes: bool = True) -> None:
-    # create the dataset folder
+class BlankNodeStrategy(Enum):
+    RAISE = 1
+    CONVERT = 2
+    IGNORE = 3
+
+
+def _intialize(input: Path, dataset: Dataset, line_handler: Callable[[int, str, TextIO], None]) -> None:
+    """
+    Create the dataset by copying cnioverting the data. Each line from the original file is given to the line_handler with arguments:
+    line_handler(line_number, line, output_file)
+    The line handler is responsible for checkign for errorsand writing the needed parts for this line to the file.
+    """
     if dataset.location().exists():
         raise Exception(f"The directory for {dataset} already exists ({dataset.location()}), remove it first")
     dataset.location().mkdir(parents=True)
     # copy the dataset to the folder 'raw' under the dataset folder
     dataset.raw_location().mkdir(parents=True)
     output_file = dataset.raw_location() / input.name
+    conversion_file = dataset.blank_node_map_location()
     with open(input, 'rt') as open_input:
         with open(output_file, 'wt') as open_output:
             for line_number, line in enumerate(open_input):
-                if not line.strip().startswith('#'):
-                    # check this line
-                    contains_blank_node = any([entity.startswith("_:") for entity in line.split()])
-                    if contains_blank_node and not keep_blank_nodes:
-                        msg = f'The input files had a blank node on line {line_number}, this line was ignored'
-                        logger.warn(msg)
-                        continue
-                    open_output.write(line)
+                line = line.strip()
+                if line.startswith('#') or line in ["", "\n", "\r\n"]:
+                    continue
+                else:
+                    try:
+                        line_handler(line_number, line, open_output)
+                    except Exception as e:
+                        output_file.unlink()
+                        conversion_file.unlink()
+                        raise Exception(f"Something went wrong handling line {line_number}. Output files have been removed.") from e
+
+
+class _BlankNodeCache:
+    def __init__(self) -> None:
+        self.cache: MutableMapping[str, str] = {}
+
+    def get_iri(self, blank: str) -> str:
+        """return an IRI representation for this blank node"""
+        if blank in self.cache:
+            return self.cache[blank]
+        else:
+            hashed = hashlib.sha1(blank.encode("UTF-8")).hexdigest()
+            new_iri = f"<gqsblanks:{hashed}>"
+            self.cache[blank] = new_iri
+            return new_iri
+
+    def write_mapping(self, to_file: Path) -> None:
+        with open(to_file) as open_file:
+            open_file.writelines([f"{k}\t{v}\n" for (k, v) in self.cache.items()])
+
+
+def initialize_dataset(input: Path, dataset: Dataset, blank_node_strategy: BlankNodeStrategy) -> None:
+    blank_node_cache = _BlankNodeCache()
+
+    def line_handler(line_number: int, line: str, output_file: TextIO) -> None:
+        # split in 3 parts. Only the literal in the object position can contain a literal, which can have spaces in it.
+        line = line.strip()
+        # strip of the trailing dot
+        assert line.endswith(".")
+        line = line[:-1]
+        parts = [entity.strip() for entity in line.split(maxsplit=2)]
+        blanks = [entity.startswith("_:") for entity in parts]
+        if any(blanks):
+            if blank_node_strategy == BlankNodeStrategy.RAISE:
+                raise Exception(f'The input files had a blank node on line {line_number}, aborting')
+            elif blank_node_strategy == BlankNodeStrategy.IGNORE:
+                msg = f'The input files had a blank node on line {line_number}, this line was ignored'
+                logger.warn(msg)
+                return
+            elif blank_node_strategy == BlankNodeStrategy.CONVERT:
+                # We take the blank node(s), hash each of them, and cretae new URLs with these hashes
+                assert len(parts) == 3
+                converted: List[str] = []
+                if blanks[0]:
+                    converted.append(blank_node_cache.get_iri(parts[0]))
+                else:
+                    converted.append(parts[0])
+                # Blank nodes can occur in the subject and object only.
+                if blanks[1]:
+                    raise Exception(f"A blank node can never occur in the predicate position, this happens on line {line_number}")
+                else:
+                    converted.append(parts[1])
+                if blanks[2]:
+                    converted.append(blank_node_cache.get_iri(parts[2]))
+                else:
+                    converted.append(parts[2])
+                line = f"{converted[0]} {converted[1]} {converted[2]} "
+            else:
+                raise AssertionError("Logic should bever reach here all enum cases should have been handled")
+        output_file.write(line + ".\n")
+    _intialize(input, dataset, line_handler)
+    blank_node_cache.write_mapping(dataset.blank_node_map_location())

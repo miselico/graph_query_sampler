@@ -13,7 +13,7 @@ from mock_dataset import MockDataset
 def create_input(tmp_path: pathlib.Path) -> None:
     dataset = MockDataset(tmp_path)
     dataset.raw_location().mkdir(parents=True, exist_ok=True)
-    with open(dataset.raw_location() / "input.txt", "w") as inputfile:
+    with open(dataset.raw_location() / "input.nt", "w") as inputfile:
         # adding content
         for i in range(10000):
             inputfile.write(f"S{i} P{i} O{i} .\n")

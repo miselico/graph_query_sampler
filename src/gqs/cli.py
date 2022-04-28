@@ -7,7 +7,7 @@ from typing import Sequence
 import click
 from gqs import dataset_split, split_to_triple_store, sample_queries, mapping as gqs_mapping
 from gqs.conversion import convert_all, protobuf_builder
-from gqs.dataset import Dataset, initialize_dataset
+from gqs.dataset import BlankNodeStrategy, Dataset, initialize_dataset
 
 from ._sparql_execution import execute_sparql_to_result_silenced
 
@@ -50,14 +50,23 @@ option_seed = click.option(
 @main.command(name="init", help="Initialize the datset directory")
 @click.option('--input', type=pathlib.Path, help='The original data file in n-triples format, lines starting with # are ignored', required=True)
 @option_dataset
-@click.option("--keep-blank-nodes", is_flag=True, help="Whether to remove blank nodes while copying the data. Keeping them will most likely lead to incorrect results. Use with care.", type=bool, default=False)
-def init(input: pathlib.Path, dataset: Dataset, keep_blank_nodes: bool = True) -> None:
-    initialize_dataset(input, dataset, keep_blank_nodes)
+@click.option('--blank-node-strategy', type=click.Choice(['RAISE', 'CONVERT', 'IGNORE'], case_sensitive=False), default='RAISE')
+def init(input: pathlib.Path, dataset: Dataset, blank_node_strategy: str = 'RAISE') -> None:
+    strategy = BlankNodeStrategy[blank_node_strategy]
+    assert strategy is not None
+    initialize_dataset(input, dataset, strategy)
 
 
 @main.group()
 def split() -> None:
     """Methods to split the original graph into a training, validation and test set"""
+
+
+@split.command(name="from-link-prediction-style", help='''Take the data splits from a directory with 3 files for train, valid and test, where there are three whitespace separated columns, the first one has the subjects, second the predicate and the last on the objects.''')
+@click.option('--input', type=pathlib.Path, help='The folder with three files (train, valid, test)  in link prediction dataset format', required=True)
+@option_dataset
+def splits_from_dataset_link_prediction_style(input: pathlib.Path, dataset: Dataset) -> None:
+    dataset_split.from_dataset_link_prediction_style(input, dataset)
 
 
 def _split_common(dataset: Dataset, train_fraction: float, validation_fraction: float, test_fraction: float

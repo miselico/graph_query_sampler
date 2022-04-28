@@ -21,8 +21,7 @@ class MockEntityMapper(EntityMapper):
 class MockDataset(Dataset):
     def __init__(self, tmp_path: pathlib.Path, enitity_mapper: Optional[EntityMapper] = None, relation_mapper: Optional[RelationMapper] = None, dataset_name: str = "dataset_name",) -> None:
         super().__init__(dataset_name)
-        tmp_path = tmp_path
-        self.tmp_path = pathlib.Path(tmp_path)
+        self.tmp_path = tmp_path
         self.relmap = relation_mapper or MockRelationMapper(128)
         self.entmap = enitity_mapper or MockEntityMapper(256, self.relmap)
 
