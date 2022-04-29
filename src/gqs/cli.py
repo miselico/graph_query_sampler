@@ -8,6 +8,7 @@ import click
 from gqs import dataset_split, split_to_triple_store, sample_queries, mapping as gqs_mapping
 from gqs.conversion import convert_all, protobuf_builder
 from gqs.dataset import BlankNodeStrategy, Dataset, initialize_dataset, initialize_dataset_from_TSV
+from gqs.export import zero_qual_queries_dataset_to_KGReasoning
 
 from ._sparql_execution import execute_sparql_to_result_silenced
 
@@ -271,3 +272,15 @@ def csv_to_proto(dataset: Dataset) -> None:
         target_directory=dataset.query_proto_location(),
         builder=protobuf_builder(relmap=relmap, entmap=entmap)
     )
+
+
+@main.group()
+def export() -> None:
+    "Export queries to other formats"
+
+
+@convert.command("to-kgreasoning")
+@option_dataset
+def csv_to_kgreasoning(dataset: Dataset) -> None:
+    """Convert the queries into a format which can be parsed by KGreasoning."""
+    zero_qual_queries_dataset_to_KGReasoning(dataset)

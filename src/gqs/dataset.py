@@ -94,6 +94,12 @@ class Dataset:
     def graphDB_url_to_endpoint(self, database_url: str) -> str:
         return database_url + "/repositories/" + self.graphDB_repositoryID()
 
+    def export_location(self) -> Path:
+        return self.location() / "export"
+
+    def export_kgreasoning_location(self) -> Path:
+        return self.export_location() / "kgreasoning/"
+
     def __str__(self) -> str:
         return f"Dataset({self.name})"
 
