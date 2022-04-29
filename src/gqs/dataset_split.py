@@ -37,7 +37,7 @@ def from_dataset_link_prediction_style(input: pathlib.Path, dataset: Dataset) ->
     cache = _IRIhashCache()
     # we use the blank node cache as it can be used for any non-compatible string really
 
-    for split, output_path in [("test", dataset.test_split_location()), ("train", dataset.train_split_location()), ("valid", dataset.validation_split_location())]:
+    for split, output_path in [("test.txt", dataset.test_split_location()), ("train.txt", dataset.train_split_location()), ("valid.txt", dataset.validation_split_location())]:
         input_path = input / split
         with open(input_path) as open_input_file:
             with open(output_path) as open_output_file:
