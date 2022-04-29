@@ -7,7 +7,7 @@ from typing import Sequence
 import click
 from gqs import dataset_split, split_to_triple_store, sample_queries, mapping as gqs_mapping
 from gqs.conversion import convert_all, protobuf_builder
-from gqs.dataset import BlankNodeStrategy, Dataset, initialize_dataset
+from gqs.dataset import BlankNodeStrategy, Dataset, initialize_dataset, initialize_dataset_from_TSV
 
 from ._sparql_execution import execute_sparql_to_result_silenced
 
@@ -47,14 +47,31 @@ option_seed = click.option(
 )
 
 
-@main.command(name="init", help="Initialize the datset directory")
+@main.group()
+def init() -> None:
+    """Ïnitialize the dataset with RDF or from a TSV file"""
+
+
+@init.command(name="RDF", case_sensitive=False, help="Initialize the dataset with RDF data")
 @click.option('--input', type=pathlib.Path, help='The original data file in n-triples format, lines starting with # are ignored', required=True)
 @option_dataset
-@click.option('--blank-node-strategy', type=click.Choice(['RAISE', 'CONVERT', 'IGNORE'], case_sensitive=False), default='RAISE')
-def init(input: pathlib.Path, dataset: Dataset, blank_node_strategy: str = 'RAISE') -> None:
+@click.option('--blank-node-strategy', type=click.Choice(['RAISE', 'CONVERT', 'IGNORE'], case_sensitive=False), default='RAISE',
+              help="""What to do when blank nodes are encountered?
+RAISE: raises an Exception
+CONVERT: converts blank nodes to URIs, this is done based on their
+IGNORE: ignores all triples involving blank nodes, effectively removing the node from the graph
+""")
+def init_RDF(input: pathlib.Path, dataset: Dataset, blank_node_strategy: str = 'RAISE') -> None:
     strategy = BlankNodeStrategy[blank_node_strategy]
     assert strategy is not None
     initialize_dataset(input, dataset, strategy)
+
+
+@init.command(name="TSV", case_sensitive=False, help="Initialize the dataset with TSV data")
+@click.option('--input', type=pathlib.Path, help='The original data file in TSV format, without any headers!', required=True)
+@option_dataset
+def init_TSV(input: pathlib.Path, dataset: Dataset) -> None:
+    initialize_dataset_from_TSV(input, dataset)
 
 
 @main.group()

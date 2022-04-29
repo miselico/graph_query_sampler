@@ -7,7 +7,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import Iterable, MutableMapping, Optional, Set, TextIO
 
-from gqs.dataset import Dataset, _BlankNodeCache
+from gqs.dataset import Dataset, _IRIhashCache
 
 __all__ = [
     "Split", "split_random", "split_round_robin"
@@ -34,8 +34,8 @@ def _count_non_comment_lines(input_file: pathlib.Path) -> int:
 
 
 def from_dataset_link_prediction_style(input: pathlib.Path, dataset: Dataset) -> None:
+    cache = _IRIhashCache()
     # we use the blank node cache as it can be used for any non-compatible string really
-    cache = _BlankNodeCache()
 
     for split, output_path in [("test", dataset.test_split_location()), ("train", dataset.train_split_location()), ("valid", dataset.validation_split_location())]:
         input_path = input / split
@@ -45,7 +45,7 @@ def from_dataset_link_prediction_style(input: pathlib.Path, dataset: Dataset) ->
                     converted = [cache.get_iri(entity.strip()) for entity in line.split()]
                     line = f"{converted[0]} {converted[1]} {converted[2]} .\n"
                     open_output_file.write(line)
-    cache.write_mapping(dataset.blank_node_map_location())
+    cache.write_mapping(dataset.identifier_mapping_location())
 
 
 def split_random(dataset: Dataset, splits: Iterable[Split], seed: int, lines: Optional[int] = None) -> None:
