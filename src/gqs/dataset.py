@@ -1,9 +1,13 @@
 
+from enum import Enum
+import hashlib
 from pathlib import Path
 import re
-from typing import Optional, Tuple
-
+from typing import Callable, List, MutableMapping, Optional, TextIO, Tuple
+import logging
 import gqs.mapping
+
+logger = logging.getLogger(__file__)
 
 
 def valid_name(name: str) -> Tuple[bool, str]:
@@ -27,9 +31,12 @@ class Dataset:
         return self.location() / "rawdata/"
 
     def raw_input_file(self) -> Path:
-        files = [f for f in self.raw_location().iterdir()]
-        assert len(files) == 1, f"There is not exactly 1 file in the raw data directory {self.raw_location()}, aborting"
+        files = [f for f in self.raw_location().iterdir() if f.suffix == ".nt"]
+        assert len(files) == 1, f"There is not exactly 1 .nt file in the raw data directory {self.raw_location()}, aborting"
         return files[0]
+
+    def identifier_mapping_location(self) -> Path:
+        return self.raw_location() / "blank_node_map.txt"
 
     def splits_location(self) -> Path:
         return self.location() / "splits"
@@ -89,3 +96,123 @@ class Dataset:
 
     def __str__(self) -> str:
         return f"Dataset({self.name})"
+
+
+class BlankNodeStrategy(Enum):
+    RAISE = 1
+    CONVERT = 2
+    IGNORE = 3
+
+
+def _intialize(input: Path, dataset: Dataset, line_handler: Callable[[int, str, TextIO], None]) -> None:
+    """
+    Create the dataset by copying and converting the data. Each line from the original file is given to the line_handler with arguments:
+    line_handler(line_number, line, output_file)
+    The line handler is responsible for checkign for errorsand writing the needed parts for this line to the file.
+    """
+    if dataset.location().exists():
+        raise Exception(f"The directory for {dataset} already exists ({dataset.location()}), remove it first")
+    dataset.location().mkdir(parents=True)
+    # copy the dataset to the folder 'raw' under the dataset folder
+    dataset.raw_location().mkdir(parents=True)
+    output_file = dataset.raw_location() / input.name
+    with open(input, 'rt') as open_input:
+        with open(output_file, 'wt') as open_output:
+            for line_number, line in enumerate(open_input):
+                line = line.strip()
+                if line in ["", "\n", "\r\n"]:
+                    continue
+                else:
+                    try:
+                        line_handler(line_number, line, open_output)
+                    except Exception as e:
+                        output_file.unlink()
+                        conversion_file = dataset.identifier_mapping_location()
+                        conversion_file.unlink()
+                        raise Exception(f"Something went wrong handling line {line_number}. Output files have been removed.") from e
+
+
+class _IRIhashCache:
+    def __init__(self) -> None:
+        """Creates a deterministic mapping between identifiers and IRIs"""
+        self.cache: MutableMapping[str, str] = {}
+
+    def get_iri(self, blank: str) -> str:
+        """return an IRI representation for this blank node"""
+        if blank in self.cache:
+            return self.cache[blank]
+        else:
+            hashed = hashlib.sha1(blank.encode("UTF-8")).hexdigest()
+            new_iri = f"<gqsblanks:{hashed}>"
+            self.cache[blank] = new_iri
+            return new_iri
+
+    def has_entries(self) -> bool:
+        return len(self.cache) > 0
+
+    def write_mapping(self, to_file: Path) -> None:
+        with open(to_file, "wt") as open_file:
+            open_file.writelines([f"{k}\t{v}\n" for (k, v) in self.cache.items()])
+
+
+def initialize_dataset(input: Path, dataset: Dataset, blank_node_strategy: BlankNodeStrategy) -> None:
+    blank_node_cache = _IRIhashCache()
+
+    def line_handler(line_number: int, line: str, output_file: TextIO) -> None:
+        # split in 3 parts. Only the literal in the object position can contain a literal, which can have spaces in it.
+        line = line.strip()
+        if line.startswith('#'):
+            return
+        # strip of the trailing dot
+        assert line.endswith(".")
+        line = line[:-1]
+        parts = [entity.strip() for entity in line.split(maxsplit=2)]
+        blanks = [entity.startswith("_:") for entity in parts]
+        if any(blanks):
+            if blank_node_strategy == BlankNodeStrategy.RAISE:
+                raise Exception(f'The input files had a blank node on line {line_number}, aborting')
+            elif blank_node_strategy == BlankNodeStrategy.IGNORE:
+                msg = f'The input files had a blank node on line {line_number}, this line was ignored'
+                logger.warn(msg)
+                return
+            elif blank_node_strategy == BlankNodeStrategy.CONVERT:
+                # We take the blank node(s), hash each of them, and cretae new URLs with these hashes
+                assert len(parts) == 3
+                converted: List[str] = []
+                if blanks[0]:
+                    converted.append(blank_node_cache.get_iri(parts[0]))
+                else:
+                    converted.append(parts[0])
+                # Blank nodes can occur in the subject and object only.
+                if blanks[1]:
+                    raise Exception(f"A blank node can never occur in the predicate position, this happens on line {line_number}")
+                else:
+                    converted.append(parts[1])
+                if blanks[2]:
+                    converted.append(blank_node_cache.get_iri(parts[2]))
+                else:
+                    converted.append(parts[2])
+                line = f"{converted[0]} {converted[1]} {converted[2]} "
+            else:
+                raise AssertionError("Logic should bever reach here all enum cases should have been handled")
+        output_file.write(line + ".\n")
+    _intialize(input, dataset, line_handler)
+    if blank_node_cache.has_entries:
+        blank_node_cache.write_mapping(dataset.identifier_mapping_location())
+
+
+def initialize_dataset_from_TSV(input: Path, dataset: Dataset) -> None:
+    blank_node_cache = _IRIhashCache()
+
+    def line_handler(line_number: int, line: str, output_file: TextIO) -> None:
+        # split in 3 parts. This format only has a tsv with each line a triple.
+        line = line.strip()
+        # strip of the trailing dot
+        parts = [entity.strip() for entity in line.split()]
+        assert len(parts) == 3
+        # We take the 3 identifier, hash each of them, and cretae new URLs with these hashes
+        converted = [blank_node_cache.get_iri(part) for part in parts]
+        line = f"{converted[0]} {converted[1]} {converted[2]} "
+        output_file.write(line + ".\n")
+    _intialize(input, dataset, line_handler)
+    blank_node_cache.write_mapping(dataset.identifier_mapping_location())

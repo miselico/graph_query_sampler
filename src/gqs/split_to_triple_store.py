@@ -84,7 +84,8 @@ def store_triples(dataset: Dataset, data: pathlib.Path, graphname: str, graphdb_
         'importSettings': ('blob', import_setting_json, 'application/json'),
         'file': ('data.nt', open(data, 'rb'), 'application/octet-stream')
     }
-    response = requests.post(url=url, files=files)
+    # mypy 0.950 gives a false positive under python 3.10 See issue #25 on https://github.com/miselico/graph_query_sampler
+    response = requests.post(url=url, files=files)  # type: ignore
     if response.status_code != 202:
         raise Exception(f"Unexpected response from triple store. Uploading the file failed: {str(response.content)}")
     logger.info("Started importing {data} into repository: {repositoryID} graph: {graphname}. Waiting for import to finish")

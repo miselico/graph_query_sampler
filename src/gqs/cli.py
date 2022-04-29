@@ -7,7 +7,7 @@ from typing import Sequence
 import click
 from gqs import dataset_split, split_to_triple_store, sample_queries, mapping as gqs_mapping
 from gqs.conversion import convert_all, protobuf_builder
-from gqs.dataset import Dataset
+from gqs.dataset import BlankNodeStrategy, Dataset, initialize_dataset, initialize_dataset_from_TSV
 
 from ._sparql_execution import execute_sparql_to_result_silenced
 
@@ -47,35 +47,43 @@ option_seed = click.option(
 )
 
 
-@main.command(name="init", help="Initialize the datset directory")
+@main.group()
+def init() -> None:
+    """Ïnitialize the dataset with RDF or from a TSV file"""
+
+
+@init.command(name="RDF", case_sensitive=False, help="Initialize the dataset with RDF data")
 @click.option('--input', type=pathlib.Path, help='The original data file in n-triples format, lines starting with # are ignored', required=True)
 @option_dataset
-@click.option("--keep-blank-nodes", is_flag=True, help="Whether to remove blank nodes while copying the data. Keeping them will most likely lead to incorrect results. Use with care.", type=bool, default=False)
-@click.option("--force", is_flag=True, help="Continue even if the file exists. ", type=bool, default=False)
-def init(input: pathlib.Path, dataset: Dataset, keep_blank_nodes: bool = True, force: bool = False) -> None:
-    # create the dataset folder
-    if not force and dataset.location().exists():
-        raise Exception(f"The directory for {dataset} already exists ({dataset.location()}), remove it first")
-    dataset.location().mkdir(parents=True, exist_ok=force)
-    # copy the dataset to the folder 'raw' under the dataset folder
-    dataset.raw_location().mkdir(parents=True, exist_ok=force)
-    output_file = dataset.raw_location() / input.name
-    with open(input, 'rt') as open_input:
-        with open(output_file, 'wt') as open_output:
-            for line_number, line in enumerate(open_input):
-                if not line.strip().startswith('#'):
-                    # check this line
-                    contains_blank_node = any([entity.startswith("_:") for entity in line.split()])
-                    if contains_blank_node and not keep_blank_nodes:
-                        msg = f'The input files had a blank node on line {line_number}, this line was ignored'
-                        logger.warn(msg)
-                        continue
-                    open_output.write(line)
+@click.option('--blank-node-strategy', type=click.Choice(['RAISE', 'CONVERT', 'IGNORE'], case_sensitive=False), default='RAISE',
+              help="""What to do when blank nodes are encountered?
+RAISE: raises an Exception
+CONVERT: converts blank nodes to URIs, this is done based on their
+IGNORE: ignores all triples involving blank nodes, effectively removing the node from the graph
+""")
+def init_RDF(input: pathlib.Path, dataset: Dataset, blank_node_strategy: str = 'RAISE') -> None:
+    strategy = BlankNodeStrategy[blank_node_strategy]
+    assert strategy is not None
+    initialize_dataset(input, dataset, strategy)
+
+
+@init.command(name="TSV", case_sensitive=False, help="Initialize the dataset with TSV data")
+@click.option('--input', type=pathlib.Path, help='The original data file in TSV format, without any headers!', required=True)
+@option_dataset
+def init_TSV(input: pathlib.Path, dataset: Dataset) -> None:
+    initialize_dataset_from_TSV(input, dataset)
 
 
 @main.group()
 def split() -> None:
     """Methods to split the original graph into a training, validation and test set"""
+
+
+@split.command(name="from-link-prediction-style", help='''Take the data splits from a directory with 3 files for train, valid and test, where there are three whitespace separated columns, the first one has the subjects, second the predicate and the last on the objects.''')
+@click.option('--input', type=pathlib.Path, help='The folder with three files (train, valid, test)  in link prediction dataset format', required=True)
+@option_dataset
+def splits_from_dataset_link_prediction_style(input: pathlib.Path, dataset: Dataset) -> None:
+    dataset_split.from_dataset_link_prediction_style(input, dataset)
 
 
 def _split_common(dataset: Dataset, train_fraction: float, validation_fraction: float, test_fraction: float
