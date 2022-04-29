@@ -279,7 +279,7 @@ def export() -> None:
     "Export queries to other formats"
 
 
-@convert.command("to-kgreasoning")
+@export.command("to-kgreasoning")
 @option_dataset
 def csv_to_kgreasoning(dataset: Dataset) -> None:
     """Convert the queries into a format which can be parsed by KGreasoning."""
