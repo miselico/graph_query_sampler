@@ -52,7 +52,7 @@ def init() -> None:
     """Ïnitialize the dataset with RDF or from a TSV file"""
 
 
-@init.command(name="RDF", case_sensitive=False, help="Initialize the dataset with RDF data")
+@init.command(name="RDF", help="Initialize the dataset with RDF data")
 @click.option('--input', type=pathlib.Path, help='The original data file in n-triples format, lines starting with # are ignored', required=True)
 @option_dataset
 @click.option('--blank-node-strategy', type=click.Choice(['RAISE', 'CONVERT', 'IGNORE'], case_sensitive=False), default='RAISE',
@@ -67,7 +67,7 @@ def init_RDF(input: pathlib.Path, dataset: Dataset, blank_node_strategy: str = '
     initialize_dataset(input, dataset, strategy)
 
 
-@init.command(name="TSV", case_sensitive=False, help="Initialize the dataset with TSV data")
+@init.command(name="TSV", help="Initialize the dataset with TSV data")
 @click.option('--input', type=pathlib.Path, help='The original data file in TSV format, without any headers!', required=True)
 @option_dataset
 def init_TSV(input: pathlib.Path, dataset: Dataset) -> None:
