@@ -122,7 +122,7 @@ def store_triples(dataset: Dataset, data: pathlib.Path, graphname: str, graphdb_
 def remove_graphdb_repository(dataset: Dataset, graphdb_url: str) -> None:
     repositoryID = dataset.graphDB_repositoryID()
     url = f"{graphdb_url}/rest/repositories/{repositoryID}"
-    print(url)
+    # print(url)
     response = requests.delete(url)
     if response.status_code != 200:
         raise Exception(str(response.content))

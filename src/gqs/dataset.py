@@ -122,20 +122,22 @@ def _intialize(input: Path, dataset: Dataset, line_handler: Callable[[int, str, 
     # copy the dataset to the folder 'raw' under the dataset folder
     dataset.raw_location().mkdir(parents=True)
     output_file = dataset.raw_location() / input.name
-    with open(input, 'rt') as open_input:
-        with open(output_file, 'wt') as open_output:
-            for line_number, line in enumerate(open_input):
-                line = line.strip()
-                if line in ["", "\n", "\r\n"]:
-                    continue
-                else:
+    with open(input, 'rt') as open_input, open(output_file, 'wt') as open_output:
+        for line_number, line in enumerate(open_input):
+            line = line.strip()
+            if line in ["", "\n", "\r\n"]:
+                continue
+            else:
+                try:
+                    line_handler(line_number, line, open_output)
+                except Exception as e:
                     try:
-                        line_handler(line_number, line, open_output)
-                    except Exception as e:
                         output_file.unlink()
-                        conversion_file = dataset.identifier_mapping_location()
-                        conversion_file.unlink()
-                        raise Exception(f"Something went wrong handling line {line_number}. Output files have been removed.") from e
+                    except Exception as e2:
+                        # we tried to remove the files, but something went wrong. this might eb because the files do not exist
+                        logger.warning("something went wrong trying to remove the created files.", exc_info=e2)
+                        pass
+                    raise Exception(f"Something went wrong handling line {line_number}. Output files have been removed.") from e
 
 
 class _IRIhashCache:
@@ -176,7 +178,7 @@ def initialize_dataset(input: Path, dataset: Dataset, blank_node_strategy: Blank
         blanks = [entity.startswith("_:") for entity in parts]
         if any(blanks):
             if blank_node_strategy == BlankNodeStrategy.RAISE:
-                raise Exception(f'The input files had a blank node on line {line_number}, aborting')
+                raise Exception(f'The input files had a blank node on line {line_number}, aborting. Perhaps specifiy to ignore or convert blank nodes.')
             elif blank_node_strategy == BlankNodeStrategy.IGNORE:
                 msg = f'The input files had a blank node on line {line_number}, this line was ignored'
                 logger.warn(msg)

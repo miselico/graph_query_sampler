@@ -199,7 +199,7 @@ def sample_queries(
         # TODO: Code duplication to converter.py
 
         # get absolute source path
-        relative_source_path = query_file_path.relative_to(formulas_directory).resolve()
+        relative_source_path = query_file_path.relative_to(formulas_directory)
         relative_source_directory = relative_source_path.parent
 
         # compute the destination path
