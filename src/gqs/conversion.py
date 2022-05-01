@@ -239,7 +239,7 @@ def convert_all(
         if filter and not filter(name_stem):
             continue
         # get absolute source path
-        relative_source_path = query_file_path.relative_to(source_directory).resolve()
+        relative_source_path = query_file_path.relative_to(source_directory)
         relative_source_directory = relative_source_path.parent
         absolute_source_directory = source_directory.joinpath(relative_source_directory).resolve()
 
