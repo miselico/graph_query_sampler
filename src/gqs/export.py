@@ -85,6 +85,13 @@ def zero_qual_queries_dataset_to_KGReasoning(dataset: Dataset) -> None:
                 pickle.dump(all_easy_answers, open_easy_answers)
         with open(hard_answers_output_location, 'wb') as open_hard_answers:
             pickle.dump(all_hard_answers, open_hard_answers)
+        # finally, the total number of entities and relations is needed:
+        stats_output_location = (dataset.export_kgreasoning_location() / "stats.txt").resolve()
+
+        rel_type_count = relmap.number_of_relation_types()
+        entity_count = entmap.number_of_real_entities()
+        with open(stats_output_location) as open_stats_output:
+            open_stats_output.write(f"numentity: {entity_count}\nnumrelations: {rel_type_count}")
 
 
 def _zero_qual_queries_csv_to_KGReasoning(
