@@ -57,6 +57,10 @@ class RelationMapper:
         and infinite variables [{self._variable_start}, ...]
         """
 
+    def number_of_relation_types(self) -> int:
+        """Get the number of (forward) relation types this relaiton mapper was initialized with. Note that this does nto include inverse relations, nor relations for reification and variables"""
+        return self._normal_predicate_count
+
     def lookup(self, relation: str) -> int:
         """
         Get the numeric index of a relation.
@@ -174,7 +178,12 @@ class EntityMapper:
         Then infinite reified statements [{self.reified_statements_start}, ...]
         """
 
-    def number_of_entities_without_vars_targets_and_reified_statements(self) -> int:
+    def number_of_real_entities(self) -> int:
+        """Get the number of entities this mapper was initialized with. This does not include entities representing relations, nor entities for variables and tartgets """
+        return self._normal_entity_count
+
+    def number_of_entities_and_reified_relations_without_vars_and_targets(self) -> int:
+        """Get the number of entities this mapper was initialized with and the number of entities used for representing relations. This does not include entities for variables, tartgets, and reified statement."""
         return self._relation_entity_end
 
     def lookup(self, entity: str) -> int:
