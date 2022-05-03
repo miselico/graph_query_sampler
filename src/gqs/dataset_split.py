@@ -40,6 +40,7 @@ def from_dataset_link_prediction_style(input: pathlib.Path, dataset: Dataset) ->
     # create the output directories
     try:
         dataset.raw_location().mkdir(parents=True, exist_ok=False)
+        dataset.splits_location().mkdir(parents=True, exist_ok=False)
     except Exception as e:
         raise Exception("Make sure the dataset does not exist yet") from e
 
