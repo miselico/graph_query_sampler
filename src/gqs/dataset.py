@@ -42,13 +42,13 @@ class Dataset:
         return self.location() / "splits"
 
     def train_split_location(self) -> Path:
-        return self.splits_location() / "train"
+        return self.splits_location() / "train.nt"
 
     def validation_split_location(self) -> Path:
-        return self.splits_location() / "validation"
+        return self.splits_location() / "validation.nt"
 
     def test_split_location(self) -> Path:
-        return self.splits_location() / "test"
+        return self.splits_location() / "test.nt"
 
     def raw_formulas_location(self) -> Path:
         return self.location() / "formulas" / "raw"

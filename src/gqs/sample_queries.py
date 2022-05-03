@@ -245,7 +245,7 @@ def sample_queries(
                     status_file_path.unlink()
                 raise
         except Exception as err:
-            logging.error("Something went wrong executing the query, removing the output file")
+            logging.error(f"Something went wrong executing the query in {query_file_path}, removing the output file")
             if absolute_target_path.exists():
                 absolute_target_path.unlink()
             if continue_on_error:
@@ -262,7 +262,7 @@ def _execute_one_query(query: str, destination_path: Path, sparql_endpoint: str,
     """
     result = execute_csv_sparql_silenced(query, sparql_endpoint, sparql_endpoint_options)
     # convert to string and take of the leading '?'
-    assert result.vars is not None, "No variables for formula query"
+    assert hasattr(result, "vars") and result.vars is not None, f"No variables for formula query, got: {result}"
     vars: List[Variable] = result.vars
 
     fieldnames: List[str] = [var.toPython()[1:] for var in vars]  # type: ignore
