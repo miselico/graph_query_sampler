@@ -175,6 +175,7 @@ def initialize_dataset(input: Path, dataset: Dataset, blank_node_strategy: Blank
         assert line.endswith(".")
         line = line[:-1]
         parts = [entity.strip() for entity in line.split(maxsplit=2)]
+        assert parts[2].count("|") == 0, "The bar character '|' cannot be used in any literal in the dataset, because it is used to separate possible answers later. Remove it from the input."
         blanks = [entity.startswith("_:") for entity in parts]
         if any(blanks):
             if blank_node_strategy == BlankNodeStrategy.RAISE:
