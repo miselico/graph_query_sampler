@@ -381,8 +381,8 @@ def _deterministically_convert_set_column_to_bar_separated(frame: pd.DataFrame, 
 
 
 def _combine_train_validation_answers(train: pd.DataFrame, validation: pd.DataFrame, target_column: str, common_columns: List[str]) -> pd.DataFrame:
-    assert train.shape[0] > 0
-    assert validation.shape[0] > 0
+    assert train.shape[0] > 0, "There are no train queries in this dataset"
+    assert validation.shape[0] > 0, "There are no validation queries in this dataset"
 
     # we have to split the answer sets for validation in the original target and easy_target (the one also in train)
     # we use a inner merge to only get the rows which are in both train and validation
