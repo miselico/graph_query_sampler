@@ -17,15 +17,15 @@ They map a formula to its name in the KGreasoning framework and a transformation
 """
 
 
-def _get_transforms(rmap: RelationMapper, emap: EntityMapper) -> dict[str, Tuple[str, Callable[[pd.Series], Tuple[Any, ...]]]]:
-    _transforms: dict[str, Tuple[str, Callable[[pd.Series], Tuple[Any, ...]]]] = {
-        '1hop': ('1p', lambda x: (emap.lookup(x["s0"]), (rmap.lookup(x["p0"]),))),
-        '2hop': ('2p', lambda x: (emap.lookup(x["s0"]), (rmap.lookup(x["p0"]), rmap.lookup(x["p1"])))),
-        '3hop': ('3p', lambda x: (emap.lookup(x["s0"]), (rmap.lookup(x["p0"]), rmap.lookup(x["p1"]), rmap.lookup(x["p2"])))),
-        '2i': ('2i', lambda x: ((emap.lookup(x["s0"]), (rmap.lookup(x["p0"]),)), (emap.lookup(x["s1"]), (rmap.lookup(x["p1"]),)))),
-        '3i': ('3i', lambda x: ((emap.lookup(x["s0"]), (rmap.lookup(x["p0"]),)), (emap.lookup(x["s1"]), (rmap.lookup(x["p1"]),)), (emap.lookup(x["s2"]), (rmap.lookup(x["p2"]),)))),
-        '2i-1hop': ('ip', lambda x: (((emap.lookup(x["s0"]), (rmap.lookup(x["p0"]),)), (emap.lookup(x["s1"]), (rmap.lookup(x["p1"]),))), (rmap.lookup(x["p2"]),))),
-        '1hop-2i': ('pi', lambda x: ((emap.lookup(x["s2"]), (rmap.lookup(x["p2"]), rmap.lookup(x["p0"]))), (emap.lookup(x["s1"]), (rmap.lookup(x["p1"]),)))),
+def _get_transforms(rmap: RelationMapper, emap: EntityMapper) -> dict[str, Tuple[Tuple[Any, ...], Callable[[pd.Series], Tuple[Any, ...]]]]:
+    _transforms: dict[str, Tuple[Tuple[Any, ...], Callable[[pd.Series], Tuple[Any, ...]]]] = {
+        '1hop': (('e', ('r',)), lambda x: (emap.lookup(x["s0"]), (rmap.lookup(x["p0"]),))),
+        '2hop': (('e', ('r', 'r')), lambda x: (emap.lookup(x["s0"]), (rmap.lookup(x["p0"]), rmap.lookup(x["p1"])))),
+        '3hop': (('e', ('r', 'r', 'r')), lambda x: (emap.lookup(x["s0"]), (rmap.lookup(x["p0"]), rmap.lookup(x["p1"]), rmap.lookup(x["p2"])))),
+        '2i': ((('e', ('r',)), ('e', ('r',))), lambda x: ((emap.lookup(x["s0"]), (rmap.lookup(x["p0"]),)), (emap.lookup(x["s1"]), (rmap.lookup(x["p1"]),)))),
+        '3i': ((('e', ('r',)), ('e', ('r',)), ('e', ('r',))), lambda x: ((emap.lookup(x["s0"]), (rmap.lookup(x["p0"]),)), (emap.lookup(x["s1"]), (rmap.lookup(x["p1"]),)), (emap.lookup(x["s2"]), (rmap.lookup(x["p2"]),)))),
+        '2i-1hop': (((('e', ('r',)), ('e', ('r',))), ('r',)), lambda x: (((emap.lookup(x["s0"]), (rmap.lookup(x["p0"]),)), (emap.lookup(x["s1"]), (rmap.lookup(x["p1"]),))), (rmap.lookup(x["p2"]),))),
+        '1hop-2i': ((('e', ('r', 'r')), ('e', ('r',))), lambda x: ((emap.lookup(x["s2"]), (rmap.lookup(x["p2"]), rmap.lookup(x["p0"]))), (emap.lookup(x["s1"]), (rmap.lookup(x["p1"]),)))),
         # '2in': lambda x:  ((x[0], (x[1],)), (x[2], (x[3], x[4]))),
         # '3in': lambda x:  ((x[0], (x[1],)), (x[2], (x[3],)), (x[4], (x[5], x[6]))),
         # 'inp': lambda x:  (((x[0], (x[1],)), (x[2], (x[3], x[4]))), (x[5],)),
@@ -56,11 +56,11 @@ def zero_qual_queries_dataset_to_KGReasoning(dataset: Dataset) -> None:
     transforms = _get_transforms(relmap, entmap)
     for pattern_path in dataset.query_csv_location().glob('*'):
         assert pattern_path.name in transforms, "There are patterns in the folder to be converted that are not known to the exporter. Aborting."
-    for split in ["train", "validation", "test"]:
-        queries_output_location = dataset.export_kgreasoning_location() / (split + "-queries.pkl")
-        easy_answers_output_location = None if split == "train" else dataset.export_kgreasoning_location() / (split + "-easy-answers.pkl")
-        hard_answers_output_location = dataset.export_kgreasoning_location() / ("train-answers.pkl" if split == "train" else split + "-hard-answers.pkl")
-        all_queries: dict[str, List[Tuple[Any, ...]]] = {}
+    for split, kgreasoning_name in [("train", "train"), ("validation", "valid"), ("test", "test")]:
+        queries_output_location = dataset.export_kgreasoning_location() / (kgreasoning_name + "-queries.pkl")
+        easy_answers_output_location = None if split == "train" else dataset.export_kgreasoning_location() / (kgreasoning_name + "-easy-answers.pkl")
+        hard_answers_output_location = dataset.export_kgreasoning_location() / ("train-answers.pkl" if split == "train" else kgreasoning_name + "-hard-answers.pkl")
+        all_queries: dict[Tuple[Any, ...], List[Tuple[Any, ...]]] = {}
         all_easy_answers: dict[Tuple[Any, ...], set[int]] = {}
         all_hard_answers: dict[Tuple[Any, ...], set[int]] = {}
         for pattern in transforms.keys():
@@ -90,7 +90,7 @@ def zero_qual_queries_dataset_to_KGReasoning(dataset: Dataset) -> None:
 
         rel_type_count = relmap.number_of_relation_types()
         entity_count = entmap.number_of_real_entities()
-        with open(stats_output_location) as open_stats_output:
+        with open(stats_output_location, "wt") as open_stats_output:
             open_stats_output.write(f"numentity: {entity_count}\nnumrelations: {rel_type_count}")
 
 
