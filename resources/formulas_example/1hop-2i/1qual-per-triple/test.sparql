@@ -38,7 +38,7 @@ where
 
     FILTER  (isIRI(?s2) && isIRI(?o2_s0) && isIRI(?s1) && isIRI(?o0_o1))
 
-#     #filter out the nodes with an in degree >= 50
+
 
 
 

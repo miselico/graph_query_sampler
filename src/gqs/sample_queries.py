@@ -93,6 +93,7 @@ def preprocess_formulas(dataset: Dataset, sparql_endpoint: str, sparql_endpoint_
         target.mkdir(parents=True, exist_ok=True)
         for split in source.glob("*.sparql"):
             query_unprocessed = split.read_text()
+            assert query_unprocessed.count("### restrictions ###") == 1, f"Each query must have a ### restrictions ### comment where the restrictions will go. could not find it for {split}"
             query_processed = query_unprocessed.replace("### restrictions ###", filter_string, 1)
             target_path = target / split.name
             target_path.write_text(query_processed)
