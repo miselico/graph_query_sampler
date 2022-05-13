@@ -106,6 +106,7 @@ def get_query_datasets(
             datafiles_and_info: List[DatafileInfo] = []
             glob_pattern = "./" + sample.selector + "/**/*" + split_name + "_stats.json"
             stat_files = list(data_root.glob(glob_pattern))
+            query_structure = sample.selector.split("/")[1]
             assert len(stat_files) > 0, f"The number of files for split {split_name} and pattern {sample.selector} was empty. This is close to always a mistake in the selector."
             for stats_file_path in stat_files:
                 # for sample_path in data_root.glob("./" + sample.selector + "/*/"):
@@ -147,7 +148,7 @@ def get_query_datasets(
             information.append_info(split_name, data_root, sample, datafiles_and_info)
 
             for datafile_and_info in datafiles_and_info:
-                all_samples.append(__OneFileDataset(dataset, datafile_and_info.source_file, datafile_and_info.amount_requested, sample.reify, sample.remove_qualifiers))
+                all_samples.append(__OneFileDataset(dataset, datafile_and_info.source_file, datafile_and_info.amount_requested, sample.reify, sample.remove_qualifiers, query_structure))
         if all_samples:
             concatenated_dataset = torch.utils.data.ConcatDataset(all_samples) if split else __EmptyDataSet()
             datasets[split_name] = concatenated_dataset
@@ -161,18 +162,20 @@ def read_queries_from_proto(
     input_path: Path,
     reify: bool,
     remove_qualifiers: bool,
+    query_structure: str,
 ) -> Iterable[TorchQuery]:
     """Yield query data from a protobuf."""
     assert not (reify and remove_qualifiers), "cannot both reify and remove qualifiers"
     if reify:
-        yield from read_queries_from_proto_with_reification(input_path, dataset)
+        yield from read_queries_from_proto_with_reification(input_path, dataset, query_structure)
     else:
-        yield from read_queries_from_proto_without_reification(input_path, remove_qualifiers)
+        yield from read_queries_from_proto_without_reification(input_path, remove_qualifiers, query_structure)
 
 
 def read_queries_from_proto_with_reification(
     input_path: Path,
-    dataset: QuerySamplerDataSet
+    dataset: QuerySamplerDataSet,
+    query_structure: str,
 ) -> Iterable[TorchQuery]:
     """
     Read preprocessed queries from Protobuf file.
@@ -230,6 +233,9 @@ def read_queries_from_proto_with_reification(
                 entity_targets.append(t.entity)
             assign_to(entity_targets)
 
+        # set query structure
+        b.set_structure(query_structure)
+
         # build the object
         yield b.build()
 
@@ -237,6 +243,7 @@ def read_queries_from_proto_with_reification(
 def read_queries_from_proto_without_reification(
     input_path: Path,
     remove_qualifiers: bool,
+    query_structure: str,
 ) -> Iterable[TorchQuery]:
     """
     Read preprocessed queries from Protobuf file.
@@ -286,6 +293,9 @@ def read_queries_from_proto_without_reification(
                 entity_targets.append(t.entity)
             assign_to(entity_targets)
 
+        # set query structure
+        b.set_structure(query_structure)
+
         # build the object
         yield b.build()
 
@@ -301,10 +311,10 @@ class __EmptyDataSet(Dataset[TorchQuery]):
 class __OneFileDataset(Dataset[TorchQuery]):
     """A query dataset from one file (=one query pattern)."""
 
-    def __init__(self, dataset: QuerySamplerDataSet, path: Path, amount: int, reify: bool, remove_qualifiers: bool) -> None:
+    def __init__(self, dataset: QuerySamplerDataSet, path: Path, amount: int, reify: bool, remove_qualifiers: bool, query_structure: str) -> None:
         assert not (reify and remove_qualifiers), "Cannot both remove qualifiers and reify them."
         super().__init__()
-        self.data = list(itertools.islice(read_queries_from_proto(dataset, path, reify, remove_qualifiers), amount))
+        self.data = list(itertools.islice(read_queries_from_proto(dataset, path, reify, remove_qualifiers, query_structure), amount))
 
     def __len__(self) -> int:
         return len(self.data)
@@ -372,6 +382,10 @@ class QueryGraphBatch:
     #: shape: (2, num_targets)
     hard_targets: LongTensor
 
+    #: Query structures
+    #: shape: (batch_size,)
+    query_structures: List[str]
+
     def __post_init__(self) -> None:
         assert self.entity_ids is not None
         assert self.relation_ids is not None
@@ -381,6 +395,7 @@ class QueryGraphBatch:
         assert self.query_diameter is not None
         assert self.easy_targets is not None
         assert self.hard_targets is not None
+        assert self.query_structures is not None
 
 
 def collate_query_data(dataset: QuerySamplerDataSet) -> Callable[[Sequence[TorchQuery]], QueryGraphBatch]:
@@ -405,6 +420,7 @@ def collate_query_data(dataset: QuerySamplerDataSet) -> Callable[[Sequence[Torch
         query_diameter = []
         easy_targets: List[LongTensor] = []
         hard_targets: List[LongTensor] = []
+        query_structures = []
 
         entity_offset = relation_offset = edge_offset = 0
         for i, query_data in enumerate(batch):
@@ -477,6 +493,9 @@ def collate_query_data(dataset: QuerySamplerDataSet) -> Callable[[Sequence[Torch
                 query_data.hard_targets,
             ]))
 
+            # add query structure
+            query_structures.append(query_data.query_structure)
+
         # concatenate
         global_entity_ids_t = torch.cat(global_entity_ids, dim=-1)
         global_relation_ids_t = torch.cat(global_relation_ids, dim=-1)
@@ -505,6 +524,7 @@ def collate_query_data(dataset: QuerySamplerDataSet) -> Callable[[Sequence[Torch
             query_diameter=query_diameter_t,
             easy_targets=easy_targets_t,
             hard_targets=hard_targets_t,
+            query_structures=query_structures,
         )
     return _collate_query_data
 
