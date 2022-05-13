@@ -19,7 +19,7 @@ SELECT DISTINCT ?s0 ?p0 ?o0_o1_s2_var ?s1 ?p1 ?p2 (group_concat(distinct ?o2; se
 
 
 
-       #     #filter out the nodes with an in degree >= 50
+### restrictions ###
 
 
 } GROUP BY ?s0 ?p0 ?o0_o1_s2_var ?s1 ?p1 ?p2 ?diameter

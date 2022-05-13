@@ -37,10 +37,17 @@ def from_dataset_link_prediction_style(input: pathlib.Path, dataset: Dataset) ->
     cache = _IRIhashCache()
     # we use the blank node cache as it can be used for any non-compatible string really
 
+    # create the output directories
+    try:
+        dataset.raw_location().mkdir(parents=True, exist_ok=False)
+        dataset.splits_location().mkdir(parents=True, exist_ok=False)
+    except Exception as e:
+        raise Exception("Make sure the dataset does not exist yet") from e
+
     for split, output_path in [("test.txt", dataset.test_split_location()), ("train.txt", dataset.train_split_location()), ("valid.txt", dataset.validation_split_location())]:
         input_path = input / split
         with open(input_path) as open_input_file:
-            with open(output_path) as open_output_file:
+            with open(output_path, "wt") as open_output_file:
                 for line in open_input_file:
                     converted = [cache.get_iri(entity.strip()) for entity in line.split()]
                     line = f"{converted[0]} {converted[1]} {converted[2]} .\n"

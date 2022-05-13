@@ -435,15 +435,15 @@ def collate_query_data(dataset: QuerySamplerDataSet) -> Callable[[Sequence[Torch
 
             # target nodes
             target_mask = global_entity_ids_ == entmap.get_target_index()
-            global_entity_ids_[target_mask] = entmap.number_of_entities_without_vars_targets_and_reified_statements() + 1
+            global_entity_ids_[target_mask] = entmap.number_of_entities_and_reified_relations_without_vars_and_targets() + 1
 
             # variable nodes
             var_mask = (global_entity_ids_ >= entmap.variable_start) & (global_entity_ids_ < entmap.variable_end)
-            global_entity_ids_[var_mask] = entmap.number_of_entities_without_vars_targets_and_reified_statements() + 2
+            global_entity_ids_[var_mask] = entmap.number_of_entities_and_reified_relations_without_vars_and_targets() + 2
 
             # blank nodes
             reification_mask = global_entity_ids_ >= entmap.reified_statements_start
-            global_entity_ids_[reification_mask] = entmap.number_of_entities_without_vars_targets_and_reified_statements() + 3
+            global_entity_ids_[reification_mask] = entmap.number_of_entities_and_reified_relations_without_vars_and_targets() + 3
 
             global_relation_ids_, (local_edge_type, local_qualifier_relations) = _unique_with_inverse(
                 query_data.edge_type,

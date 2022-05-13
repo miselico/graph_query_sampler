@@ -37,6 +37,7 @@ WHERE {
     FILTER(isIRI(?s0) && isIRI(?s1) && isIRI(?s2) && isIRI(?o0_o1_o2))
 
 
+### restrictions ###
 
 
 

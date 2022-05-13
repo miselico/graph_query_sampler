@@ -93,6 +93,7 @@ def preprocess_formulas(dataset: Dataset, sparql_endpoint: str, sparql_endpoint_
         target.mkdir(parents=True, exist_ok=True)
         for split in source.glob("*.sparql"):
             query_unprocessed = split.read_text()
+            assert query_unprocessed.count("### restrictions ###") == 1, f"Each query must have a ### restrictions ### comment where the restrictions will go. could not find it for {split}"
             query_processed = query_unprocessed.replace("### restrictions ###", filter_string, 1)
             target_path = target / split.name
             target_path.write_text(query_processed)
@@ -245,7 +246,7 @@ def sample_queries(
                     status_file_path.unlink()
                 raise
         except Exception as err:
-            logging.error("Something went wrong executing the query, removing the output file")
+            logging.error(f"Something went wrong executing the query in {query_file_path}, removing the output file")
             if absolute_target_path.exists():
                 absolute_target_path.unlink()
             if continue_on_error:
@@ -262,7 +263,7 @@ def _execute_one_query(query: str, destination_path: Path, sparql_endpoint: str,
     """
     result = execute_csv_sparql_silenced(query, sparql_endpoint, sparql_endpoint_options)
     # convert to string and take of the leading '?'
-    assert result.vars is not None, "No variables for formula query"
+    assert hasattr(result, "vars") and result.vars is not None, f"No variables for formula query, got: {result}"
     vars: List[Variable] = result.vars
 
     fieldnames: List[str] = [var.toPython()[1:] for var in vars]  # type: ignore
@@ -380,8 +381,8 @@ def _deterministically_convert_set_column_to_bar_separated(frame: pd.DataFrame, 
 
 
 def _combine_train_validation_answers(train: pd.DataFrame, validation: pd.DataFrame, target_column: str, common_columns: List[str]) -> pd.DataFrame:
-    assert train.shape[0] > 0
-    assert validation.shape[0] > 0
+    assert train.shape[0] > 0, "There are no train queries in this dataset"
+    assert validation.shape[0] > 0, "There are no validation queries in this dataset"
 
     # we have to split the answer sets for validation in the original target and easy_target (the one also in train)
     # we use a inner merge to only get the rows which are in both train and validation

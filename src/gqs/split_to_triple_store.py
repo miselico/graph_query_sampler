@@ -10,7 +10,7 @@ import logging
 from .dataset import Dataset
 
 __all__ = [
-    "create_graphdb_repository", "remove_graphdb_repository", "store_triples"
+    "create_graphdb_repository", "remove_graphdb_repository", "store_triples_graphDB"
 ]
 
 logger = logging.getLogger(__name__)
@@ -63,7 +63,7 @@ def create_graphdb_repository(repositoryID: str, graphdb_url: str) -> None:
         raise Exception(f"Creating the repository failed. does it alreade exist? Message: {str(response.content)}")
 
 
-def store_triples(dataset: Dataset, data: pathlib.Path, graphname: str, graphdb_url: str) -> None:
+def store_triples_graphDB(dataset: Dataset, data: pathlib.Path, graphname: str, graphdb_url: str) -> None:
     repositoryID = dataset.graphDB_repositoryID()
     url = f"{graphdb_url}/rest/data/import/upload/{repositoryID}/file"
 

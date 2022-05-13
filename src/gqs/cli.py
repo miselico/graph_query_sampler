@@ -2,7 +2,7 @@ import logging
 import os
 import pathlib
 import shutil
-from typing import Sequence
+from typing import Optional, Sequence
 
 import click
 from gqs import dataset_split, split_to_triple_store, sample_queries, mapping as gqs_mapping
@@ -157,7 +157,7 @@ def store_graphdb(dataset: Dataset, database_url: str) -> None:
         splitname = split_combo[0]
         splitparts = split_combo[1]
         for part in splitparts:
-            split_to_triple_store.store_triples(dataset, part, splitname, database_url)
+            split_to_triple_store.store_triples_graphDB(dataset, part, splitname, database_url)
     # check whether the imported files contains blank nodes, if so, warn the user
     query = """ASK {graph<split:all>{
             {?entity ?_p ?_o} UNION {?_s ?_p ?entity} UNION { <<?_s ?_p ?_o>> ?_qr ?entity }
@@ -221,13 +221,29 @@ def sample() -> None:
     """Sample queries from the stored triples"""
 
 
-@sample.command("create")
+@sample.command("create-graphdb")
 @option_dataset
 @option_database_url
-def create_sample(dataset: Dataset, database_url: str) -> None:
+def create_sample_graphdb(dataset: Dataset, database_url: str) -> None:
     """Create queries from the stored triples, store in CSV format."""
     sparql_endpoint = dataset.graphDB_url_to_endpoint(database_url)
     sample_queries.sample_queries(dataset, sparql_endpoint)
+
+
+@sample.command("create-generic")
+@option_dataset
+@option_database_url
+@click.option("--username", help="The username for basic HTTP authentication")
+@click.option("--password", help="The password for basic HTTP authentication")
+def create_sample_generic(dataset: Dataset, database_url: str, username: Optional[str], password: Optional[str]) -> None:
+    """Create queries from triples stored in anzograph, store in CSV format."""
+    sparql_endpoint = database_url or "http://localhost:8080/sparql"
+    assert (username is None and password is None) or (username is not None and password is not None)
+    if username is None:
+        options = {}
+    else:
+        options = {"auth": (username, password)}
+    sample_queries.sample_queries(dataset, sparql_endpoint, sparql_endpoint_options=options)
 
 
 @sample.command("remove")
