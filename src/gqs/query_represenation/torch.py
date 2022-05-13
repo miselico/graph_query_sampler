@@ -30,6 +30,9 @@ class TorchQuery:
     # The longest shortest path between two nodes in this query graph, a scalar tensor.
     query_diameter: LongTensor
 
+    # The query structure
+    query_structure: str
+
     # A flag to indicate that the inverse relations are already included in the tensors.
     # This is to prevent accidentally calling withInverses twice
     inverses_already_set: bool = False
