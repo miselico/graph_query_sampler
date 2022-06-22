@@ -103,6 +103,10 @@ class QueryBuilder(Generic[T], ABC):
         pass
 
     @abstractmethod
+    def set_structure(self, query_structure: int) -> None:
+        pass
+
+    @abstractmethod
     def build(self) -> T:
         pass
 
@@ -572,6 +576,9 @@ def torch_query_builder(relmap: Optional[RelationMapper], entmap: Optional[Entit
             assert diameter <= self.number_of_triples, "the diameter of the query can never be larger than the number of triples"
             self.diameter = diameter
 
+        def set_structure(self, query_structure: str) -> None:
+            self.query_structure = query_structure
+
         def build(self) -> TorchQuery:
             # checkign that everything is filled
             assert (self.edge_index != -1).all()
@@ -580,8 +587,9 @@ def torch_query_builder(relmap: Optional[RelationMapper], entmap: Optional[Entit
             assert self.diameter != -1
             assert self.easy_targets is not None
             assert self.hard_targets is not None
+            assert self.query_structure is not None
 
-            return TorchQuery(self.edge_index, self.edge_type, self.qualifiers, self.easy_targets, self.hard_targets, torch.as_tensor(self.diameter))
+            return TorchQuery(self.edge_index, self.edge_type, self.qualifiers, self.easy_targets, self.hard_targets, torch.as_tensor(self.diameter), self.query_structure)
 
         @ staticmethod
         def get_file_extension() -> str:
