@@ -558,7 +558,7 @@ def get_query_data_loaders(
             batch_size=batch_size,
             shuffle=splitname == "train",
             collate_fn=collate_query_data(dataset),
-            pin_memory=True,
+            pin_memory=False,
             drop_last=splitname == "train",
             num_workers=num_workers,
         )
