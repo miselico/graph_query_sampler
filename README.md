@@ -39,7 +39,7 @@ When using the command line tool, you can always see more information and option
 1. Install graphDB. You need to configure it with a lot of memory for the query sampler.
 2. Initialize the folder for your dataset. Specify your nt file and the name you want to use for your dataset, which can only contain lowercase characters.
 ```bash
-gqs init --input hp.nt --dataset hp --blank-node-strategy convert
+gqs init RDF --input hp.nt --dataset hp --blank-node-strategy convert
 ```
 This will create a new folder with the name of your dataset under the folder called datasets. All data related to the query sampling will be stored in that folder.
 
