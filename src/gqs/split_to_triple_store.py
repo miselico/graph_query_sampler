@@ -10,10 +10,26 @@ import logging
 from .dataset import Dataset
 
 __all__ = [
-    "create_graphdb_repository", "remove_graphdb_repository", "store_triples_graphDB"
+    "get_all_repositories", "create_graphdb_repository", "remove_graphdb_repository", "store_triples_graphDB"
 ]
 
 logger = logging.getLogger(__name__)
+
+def get_all_repositories(repositoryID: str, graphdb_url: str) -> list[str]:
+    url = f"{graphdb_url}/rest/repositories"
+
+    response = requests.get(url=url)
+
+    if response.status_code != 200:
+        raise Exception(f"Something went wrong with retrieving list of repositories. Message: {str(response.content)}")
+
+    response_json = json.loads(response.text)
+
+    repositories = []
+    for repository in response_json:
+        repositories.append(repository['id'])
+
+    return repositories
 
 
 def create_graphdb_repository(repositoryID: str, graphdb_url: str) -> None:
