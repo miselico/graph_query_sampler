@@ -3,13 +3,27 @@ Graph Query Sampler (gqs)
 
 Graph query Sampler provides an implementation to extract queries from a graph. This is used to train and evaluate approximate graph query answering (also called multi-hop reasoning) systems.
 
-To install, clone and run
+To install, clone the repository.
+
+We recommend creating a virtual environment using conda.
+
+`conda create --name gqs_env --python=3.10`
+
+from the home of this repository:
+
+`conda activate gqs_env`
+
+and run:
 
     pip install -e .
 
 To run test install the test dependencies using
 
-    pip install -e .[test]
+`pip install -e .[test]`
+
+For MacOS
+
+`pip install -e '.[test]'`
 
 and then execute the tests with
 
