@@ -3,13 +3,27 @@ Graph Query Sampler (gqs)
 
 Graph query Sampler provides an implementation to extract queries from a graph. This is used to train and evaluate approximate graph query answering (also called multi-hop reasoning) systems.
 
-To install, clone and run
+To install, clone the repository.
+
+We recommend creating a virtual environment using conda.
+
+`conda create --name gqs_env --python=3.10`
+
+from the home of this repository:
+
+`conda activate gqs_env`
+
+and run:
 
     pip install -e .
 
 To run test install the test dependencies using
 
-    pip install -e .[test]
+`pip install -e .[test]`
+
+For MacOS
+
+`pip install -e '.[test]'`
 
 and then execute the tests with
 
@@ -25,7 +39,7 @@ When using the command line tool, you can always see more information and option
 1. Install graphDB. You need to configure it with a lot of memory for the query sampler.
 2. Initialize the folder for your dataset. Specify your nt file and the name you want to use for your dataset, which can only contain lowercase characters.
 ```bash
-gqs init --input hp.nt --dataset hp --blank-node-strategy convert
+gqs init RDF --input hp.nt --dataset hp --blank-node-strategy convert
 ```
 This will create a new folder with the name of your dataset under the folder called datasets. All data related to the query sampling will be stored in that folder.
 
