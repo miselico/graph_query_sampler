@@ -1,0 +1,25 @@
+
+_:blank_node_test <https://schema.org/slogan> _:why_no_name .
+_:why_no_name <https://schema.org/givenName> "_: isn't really a name, but a good parser test" .
+  # comment testing
+       # another
+<https://harrypotter.fandom.com/wiki/Neville_Longbottom> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/Person> .
+<https://harrypotter.fandom.com/wiki/Neville_Longbottom> <https://schema.org/givenName> "Neville" .
+<https://harrypotter.fandom.com/wiki/Neville_Longbottom> <http://xmlns.com/foaf/0.1/birthday> "1980-07-30"^^<http://www.w3.org/2001/XMLSchema#date> .
+<https://harrypotter.fandom.com/wiki/Neville_Longbottom> <https://schema.org/knows> <https://harrypotter.fandom.com/wiki/Luna_Lovegood> .
+<https://harrypotter.fandom.com/wiki/Neville_Longbottom> <https://schema.org/knows> <https://harrypotter.fandom.com/wiki/Ronald_Weasley> .
+<https://harrypotter.fandom.com/wiki/Neville_Longbottom> <https://schema.org/knows> <https://harrypotter.fandom.com/wiki/Harry_Potter> .
+<https://harrypotter.fandom.com/wiki/Luna_Lovegood> <https://schema.org/knows> <https://harrypotter.fandom.com/wiki/Ronald_Weasley> .
+<https://harrypotter.fandom.com/wiki/Luna_Lovegood> <https://schema.org/knows> <https://harrypotter.fandom.com/wiki/Harry_Potter> .
+<https://harrypotter.fandom.com/wiki/Harry_Potter> <https://schema.org/knows> <https://harrypotter.fandom.com/wiki/Luna_Lovegood> .
+<https://harrypotter.fandom.com/wiki/Harry_Potter> <https://schema.org/knows> <https://harrypotter.fandom.com/wiki/Ronald_Weasley> .
+<https://harrypotter.fandom.com/wiki/Neville_Longbottom> <https://schema.org/alumniOf> <place:hogwarts> .
+<https://harrypotter.fandom.com/wiki/Luna_Lovegood> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/Person> .
+<https://harrypotter.fandom.com/wiki/Luna_Lovegood> <https://schema.org/givenName> "Luna" .
+<https://harrypotter.fandom.com/wiki/Luna_Lovegood> <http://xmlns.com/foaf/0.1/birthday> "1981-02-13"^^<http://www.w3.org/2001/XMLSchema#date> .
+<https://harrypotter.fandom.com/wiki/Ronald_Weasley> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/Person> .
+<https://harrypotter.fandom.com/wiki/Ronald_Weasley> <https://schema.org/givenName> "Ronald" .
+<place:hogwarts> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/Organization> .
+<place:hogwarts> <https://schema.org/name> "Hogwarts School of Witchcraft and Wizardry" .
+<place:hogwarts> <https://schema.org/logo> <https://bit.ly/3kDpyDf> .
+<place:hogwarts> <https://schema.org/slogan> "Draco Dormiens Nunquam Titillandus"@la .
