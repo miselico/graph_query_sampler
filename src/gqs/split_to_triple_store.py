@@ -29,9 +29,9 @@ def create_graphdb_repository(repositoryID: str, graphdb_url: str) -> None:
     rep:repositoryID "{repositoryID}" ;
     rdfs:label "" ;
     rep:repositoryImpl [
-        rep:repositoryType "graphdb:FreeSailRepository" ;
+        rep:repositoryType "graphdb:SailRepository" ;
         sr:sailImpl [
-            sail:sailType "graphdb:FreeSail" ;
+            sail:sailType "graphdb:Sail" ;
 
             owlim:base-URL "http://example.org/owlim#" ;
             owlim:defaultNS "" ;
@@ -69,21 +69,23 @@ def store_triples_graphDB(dataset: Dataset, data: pathlib.Path, graphname: str, 
 
     unique_name = str(uuid.uuid4()) + "-data.nt"
 
-    import_settings = {"name": unique_name, "status": "NONE", "message": "", "context": graphname,
+    import_settings = {"name": unique_name, "status": "NONE", "context": graphname,
                        "replaceGraphs": [], "baseURI": None, "forceSerial": False, "type": None,
-                       "format": None, "data": "somedatatotest", "timestamp": 0,
+                       "data": "somedatatotest", "timestamp": 0,
                        "parserSettings": {
                            "preserveBNodeIds": False, "failOnUnknownDataTypes": False, "verifyDataTypeValues": False,
                            "normalizeDataTypeValues": False, "failOnUnknownLanguageTags": False, "verifyLanguageTags": True,
                            "normalizeLanguageTags": False, "stopOnError": True
                        },
-                       "requestIdHeadersToForward": None,
                        }
     import_setting_json = json.dumps(import_settings)
     files = {
         'importSettings': ('blob', import_setting_json, 'application/json'),
         'file': ('data.nt', open(data, 'rb'), 'application/octet-stream')
     }
+    print(data)
+    print(url)
+    print(files)
     # mypy 0.950 gives a false positive under python 3.10 See issue #25 on https://github.com/miselico/graph_query_sampler
     response = requests.post(url=url, files=files)  # type: ignore
     if response.status_code != 202:
