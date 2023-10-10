@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.9"]
+        python-version: ["3.9", "3.10", "3.11"]
 
     steps:
       - uses: actions/checkout@v2
@@ -28,8 +28,11 @@ jobs:
       - name: Install PyTorch Geometric
         # PyTorch Geometric requires some special treatment
         run: |
-          python3 -m pip install torch-scatter torch-sparse torch-cluster torch-spline-conv \
-          torch-geometric -f https://data.pyg.org/whl/torch-1.11.0+cpu.html
+          pip install torch_geometric
+        #  pip install pyg_lib torch_scatter torch_sparse torch_cluster \
+        #  torch_spline_conv -f https://data.pyg.org/whl/torch-2.1.0+cpu.html
+        # python3 -m pip install torch-scatter torch-sparse torch-cluster torch-spline-conv \
+        # torch-geometric -f https://data.pyg.org/whl/torch-1.11.0+cpu.html
         # python -m pip install torch==1.8.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
         # python -m pip install torch-scatter torch-sparse torch-cluster torch-spline-conv -f https://pytorch-geometric.com/whl/torch-1.8.0+cpu.html
         # python -m pip install torch-geometric
