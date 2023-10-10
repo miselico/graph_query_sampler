@@ -28,10 +28,11 @@ jobs:
       - name: Upgrade pip and build dependencies
         run: | # setuptools is fixed to 58 until pyhash gets compatible with it
           python3 -m pip install --upgrade pip setuptools wheel
-      - name: Install PyTorch Geometric
+      # - name: Install PyTorch Geometric
         # PyTorch Geometric requires some special treatment
-        run: |
-          pip install torch_geometric
+        ## No longer, it seems. Now added to normal dependencies.
+        #run: |
+        #  pip install torch_geometric
         #  pip install pyg_lib torch_scatter torch_sparse torch_cluster \
         #  torch_spline_conv -f https://data.pyg.org/whl/torch-2.1.0+cpu.html
         # python3 -m pip install torch-scatter torch-sparse torch-cluster torch-spline-conv \

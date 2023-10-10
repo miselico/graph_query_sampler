@@ -15,6 +15,7 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
+
 def get_all_repositories(repositoryID: str, graphdb_url: str) -> list[str]:
     url = f"{graphdb_url}/rest/repositories"
 
@@ -25,9 +26,9 @@ def get_all_repositories(repositoryID: str, graphdb_url: str) -> list[str]:
 
     response_json = json.loads(response.text)
 
-    repositories = []
+    repositories: list[str] = []
     for repository in response_json:
-        repositories.append(repository['id'])
+        repositories.append(str(repository['id']))
 
     return repositories
 
