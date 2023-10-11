@@ -142,9 +142,18 @@ option_database_url = click.option(
      The repositoryID will be equal to the dataset name, the named graphs will be split:test, split:train, split:validation, split:train-validation, and split:all''')
 @option_dataset
 @option_database_url
-def store_graphdb(dataset: Dataset, database_url: str) -> None:
+@click.option("--force", is_flag=True, help="Remove the repository if it already exists. This will overwrite without asking. Use with care!", type=bool, default=False)
+def store_graphdb(dataset: Dataset, database_url: str, force: bool) -> None:
     for split in [dataset.train_split_location(), dataset.validation_split_location(), dataset.test_split_location()]:
         assert split.exists(), f"The split {split} could not be found, not starting"
+
+    repositories = split_to_triple_store.get_all_repositories(dataset.graphDB_repositoryID(), database_url)
+
+    if dataset.graphDB_repositoryID() in repositories:
+        if not force:
+            raise Exception("The repository already exists, use a different ID, remove it first, or use --force")
+        else:
+            split_to_triple_store.remove_graphdb_repository(dataset, database_url)
 
     split_to_triple_store.create_graphdb_repository(dataset.graphDB_repositoryID(), database_url)
     for split_combo in [
