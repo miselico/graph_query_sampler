@@ -206,7 +206,7 @@ def initialize_dataset(input: Path, dataset: Dataset, blank_node_strategy: Blank
                 raise AssertionError("Logic should bever reach here all enum cases should have been handled")
         output_file.write(line + ".\n")
     _intialize(input, dataset, line_handler)
-    if blank_node_cache.has_entries:
+    if blank_node_cache.has_entries():
         blank_node_cache.write_mapping(dataset.identifier_mapping_location())
 
 

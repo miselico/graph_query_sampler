@@ -154,6 +154,7 @@ def convert_one(absolute_source_path: Path, absolute_target_path: Path, builderC
 
                     if easy:
                         assert len(sub_parts) == 1, "In the easy targets column, there can be no specification of the position. This must only be placed on the hard targets column"
+                    targets: list[str]
                     if value.strip() == "":
                         assert easy, "Only easy targets can be empty"
                         targets = []
