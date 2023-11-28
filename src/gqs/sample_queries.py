@@ -17,6 +17,7 @@ from typing import (Any, DefaultDict, Dict, Generator, Iterable, List,
 import pandas as pd
 from gqs.dataset import Dataset
 from rdflib import Variable
+from rdflib.query import ResultRow
 from requests import HTTPError
 
 from ._sparql_execution import (execute_csv_sparql_silenced,
@@ -84,8 +85,9 @@ def preprocess_formulas(dataset: Dataset, sparql_endpoint: str, sparql_endpoint_
             # print(query)
             results = execute_sparql_to_result_silenced(query, sparql_endpoint, sparql_endpoint_options)
             for result in results:
-                entity = result.get("entity")
-                excluded_entities[restriction["variable"]].add(str(entity))
+                assert isinstance(result, ResultRow)
+                entity1 = result.get("entity")
+                excluded_entities[restriction["variable"]].add(str(entity1))
         filter_string = "\n"
         for variable, entities in excluded_entities.items():
             for entity in entities:
@@ -266,7 +268,7 @@ def _execute_one_query(query: str, destination_path: Path, sparql_endpoint: str,
     assert hasattr(result, "vars") and result.vars is not None, f"No variables for formula query, got: {result}"
     vars: List[Variable] = result.vars
 
-    fieldnames: List[str] = [var.toPython()[1:] for var in vars]  # type: ignore
+    fieldnames: List[str] = [var.toPython()[1:] for var in vars]
     assert_query_validity(fieldnames)
     all_queries = list(result)
     query_count = len(all_queries)
@@ -279,6 +281,7 @@ def _execute_one_query(query: str, destination_path: Path, sparql_endpoint: str,
         writer = csv.DictWriter(output_file, fieldnames, extrasaction="raise", dialect="unix", quoting=csv.QUOTE_MINIMAL)
         writer.writeheader()
         for one_query in all_queries:
+            assert isinstance(one_query, ResultRow)
             writer.writerow(one_query.asdict())
     return query_count
 
@@ -286,6 +289,7 @@ def _execute_one_query(query: str, destination_path: Path, sparql_endpoint: str,
 def _separate_hard_and_easy_targets(raw_query_directory: Path, target_path: Path) -> None:
     for (source, target) in pairwise_directories(raw_query_directory, target_path):
         query_sets_found = False
+        file_prefix = None
         for file in source.glob("*"):
             if not file.is_file():
                 continue
@@ -295,6 +299,7 @@ def _separate_hard_and_easy_targets(raw_query_directory: Path, target_path: Path
                 break
         if not query_sets_found:
             continue
+        assert file_prefix
         train_input_file = source / (file_prefix + "train.csv.gz")
         validation_input_file = source / (file_prefix + "validation.csv.gz")
         test_input_file = source / (file_prefix + "test.csv.gz")

@@ -5,6 +5,7 @@ import logging
 import pathlib
 from typing import Any, Dict, Iterable, Tuple
 import gqs.dataset
+from rdflib.query import ResultRow
 
 from ._sparql_execution import execute_sparql_to_result_silenced
 
@@ -292,8 +293,9 @@ class EntityMapper:
 
 def create_mapping(dataset: "gqs.dataset.Dataset", sparql_endpoint: str, sparql_endpoint_options: Dict[str, Any]) -> None:
     def query_entities_to_file(query: str, file: pathlib.Path, var: str) -> None:
-        entities = []
+        entities: list[str] = []
         for result in execute_sparql_to_result_silenced(query, sparql_endpoint, sparql_endpoint_options):
+            assert isinstance(result, ResultRow)
             entities.append(str(result.get(var)))
         entities.sort()
         with open(file, "wt") as output_file:
