@@ -51,7 +51,8 @@ class TorchQuery:
         number_of_triples int
             The number of triples in the query
         """
-        return self.edge_index.size()[1]
+        size: torch.Size = self.edge_index.size()
+        return size[1]
 
     def get_number_of_qualifiers(self) -> int:
         """
@@ -62,7 +63,8 @@ class TorchQuery:
         number_of_qualifiers int
             The number of qualifiers in the query
         """
-        return self.qualifier_index.size()[1]
+        size: torch.Size = self.qualifier_index.size()
+        return size[1]
 
     def with_inverses(self, relmap: RelationMapper) -> "TorchQuery":
         """
@@ -95,7 +97,7 @@ class TorchQuery:
         new_edge_index[0, number_of_riples:] = self.edge_index[1]
         new_edge_index[1, number_of_riples:] = self.edge_index[0]
         for index, val in enumerate(self.edge_type):
-            new_edge_type[number_of_riples + index] = relmap.get_inverse_of_index(val)
+            new_edge_type[number_of_riples + index] = relmap.get_inverse_of_index(int(val))
         # for the qualifiers, we first copy and then update the indices to the corresponding triples
         new_qualifier_index[:, number_of_qualifiers:] = self.qualifier_index
         new_qualifier_index[2, number_of_qualifiers:] += number_of_riples

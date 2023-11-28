@@ -237,7 +237,7 @@ def sample_queries(
             try:
                 count = _execute_one_query(query, absolute_target_path, sparql_endpoint, sparql_endpoint_options, shuffling_random_seed)
             except HTTPError as e:
-                raise Exception(str(e) + str(e.response.content)) from e
+                raise Exception(str(e) + str(e.response.content if e.response else "")) from e
             new_stats = {"name": name_stem, "hash": new_query_hash, "raw-count": count}
             try:
                 _dump_json_to_file(status_file_path, new_stats)
