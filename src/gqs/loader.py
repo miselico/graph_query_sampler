@@ -435,11 +435,11 @@ def collate_query_data(dataset: QuerySamplerDataSet) -> Callable[[Sequence[Torch
             )
 
             # add offsets: entities ...
-            local_edge_index = local_edge_index + entity_offset
-            local_qualifier_entities = local_qualifier_entities + entity_offset
+            local_edge_index = local_edge_index + entity_offset  # type: ignore[assignment]
+            local_qualifier_entities = local_qualifier_entities + entity_offset  # type: ignore[assignment]
             # ... relations ...
-            local_edge_type = local_edge_type + relation_offset
-            local_qualifier_relations = local_qualifier_relations + relation_offset
+            local_edge_type = local_edge_type + relation_offset  # type: ignore[assignment]
+            local_qualifier_relations = local_qualifier_relations + relation_offset  # type: ignore[assignment]
             # ... and edge ids
             batch_edge_ids = query_data.qualifier_index[2] + edge_offset
 

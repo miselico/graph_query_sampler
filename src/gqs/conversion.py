@@ -51,7 +51,7 @@ class QueryBuilder(Generic[T], ABC):
         pass
 
     @abstractmethod
-    def set_literal_object(self, index: int, entity: str) -> None:
+    def set_literal_object(self, index: int, litral_value: str) -> None:
         pass
 
     @abstractmethod
@@ -129,8 +129,8 @@ def _get_triple_and_qualifier_count_from_headers(fieldnames: Sequence[str]) -> T
 
 def convert_one(absolute_source_path: Path, absolute_target_path: Path, builderClass: Type[QueryBuilder[T]]) -> None:
     """Convert a file of textual queries to another format as specified in the builder."""
-    converted = []
-
+    converted: list[T] = []
+    builder = None
     with gzip.open(absolute_source_path, mode="rt", newline="") as input_file:
         reader = csv.DictReader(input_file, dialect="unix", quoting=csv.QUOTE_MINIMAL)
         assert reader.fieldnames is not None
@@ -222,6 +222,7 @@ def convert_one(absolute_source_path: Path, absolute_target_path: Path, builderC
         logging.warning(f"No triples found in {absolute_source_path}, the binary file will not contain any queries.")
         # need to create the first builder still. Otehrwise we reuse it from the loop
         builder = builderClass(number_of_triples, number_of_qualifiers)
+    assert builder
     builder.store(converted, absolute_target_path)
 
 
@@ -575,9 +576,9 @@ def torch_query_builder(relmap: Optional[RelationMapper], entmap: Optional[Entit
 
         def build(self) -> TorchQuery:
             # checkign that everything is filled
-            assert (self.edge_index != -1).all()
-            assert (self.edge_type != -1).all()
-            assert (self.qualifiers != -1).all()
+            assert (self.edge_index != -1).all()  # type: ignore[attr-defined]
+            assert (self.edge_type != -1).all()  # type: ignore[attr-defined]
+            assert (self.qualifiers != -1).all()  # type: ignore[attr-defined]
             assert self.diameter != -1
             assert self.easy_targets is not None
             assert self.hard_targets is not None
