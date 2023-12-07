@@ -18,14 +18,15 @@ def valid_name(name: str) -> Tuple[bool, str]:
 
 
 class Dataset:
-    def __init__(self, dataset_name: str) -> None:
+    def __init__(self, dataset_name: str, root_directory: Optional[Path] = None) -> None:
         valid, expl = valid_name(dataset_name)
         assert valid, expl
         self.name = dataset_name
         self._mappers: Optional[Tuple[gqs.mapping.RelationMapper, gqs.mapping.EntityMapper]] = None
+        self.root: Path = root_directory or Path("./datasets")
 
     def location(self) -> Path:
-        return (Path("./datasets") / self.name).resolve()
+        return (self.root / self.name).resolve()
 
     def raw_location(self) -> Path:
         return self.location() / "rawdata/"
