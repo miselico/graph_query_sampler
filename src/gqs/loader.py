@@ -19,8 +19,8 @@ from .conversion import torch_query_builder
 # from .generated.query_pb2 import QueryData as pb_QueryData
 from .types import LongTensor
 from .dataset import Dataset as QuerySamplerDataSet
-from .query_represenation.torch import TorchQuery
-from .query_represenation.query_pb2 import QueryData as pb_QueryData
+from .query_representation.torch import TorchQuery
+from .query_representation.query_pb2 import QueryData as pb_QueryData
 from .sample import Sample
 
 __all__ = [

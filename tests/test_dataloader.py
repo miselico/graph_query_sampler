@@ -6,7 +6,7 @@ from typing import Sequence
 import torch
 import torch.utils.data
 from gqs.loader import QueryGraphBatch, collate_query_data
-from gqs.query_represenation.torch import TorchQuery
+from gqs.query_representation.torch import TorchQuery
 # from torch_geometric.data import Data as DataGeometric
 
 from mock_dataset import MockDataset

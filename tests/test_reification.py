@@ -5,7 +5,7 @@ from typing import List
 
 from gqs.conversion import protobuf_builder
 from gqs.loader import read_queries_from_proto_with_reification
-from gqs.query_represenation.torch import TorchQuery
+from gqs.query_representation.torch import TorchQuery
 from mock_dataset import MockDataset
 
 

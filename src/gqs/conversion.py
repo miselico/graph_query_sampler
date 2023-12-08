@@ -16,13 +16,13 @@ from gqs.types import LongTensor
 
 from .mapping import EntityMapper  # , get_entity_mapper, get_relation_mapper
 from .mapping import RelationMapper
-from .query_represenation.query_pb2 import \
+from .query_representation.query_pb2 import \
     EntityOrLiteral as pb_EntityOrLiteral
-from .query_represenation.query_pb2 import Qualifier as pb_Qualifier
-from .query_represenation.query_pb2 import Query as pb_Query
-from .query_represenation.query_pb2 import QueryData as pb_QueryData
-from .query_represenation.query_pb2 import Triple as pb_Triple
-from .query_represenation.torch import TorchQuery
+from .query_representation.query_pb2 import Qualifier as pb_Qualifier
+from .query_representation.query_pb2 import Query as pb_Query
+from .query_representation.query_pb2 import QueryData as pb_QueryData
+from .query_representation.query_pb2 import Triple as pb_Triple
+from .query_representation.torch import TorchQuery
 
 __all__ = [
     "convert_all",
