@@ -50,7 +50,7 @@ option_seed = click.option(
 
 @main.group()
 def init() -> None:
-    """Ïnitialize the dataset with RDF or from a TSV file"""
+    """Initialize the dataset with RDF or from a TSV file"""
 
 
 @init.command(name="RDF", help="Initialize the dataset with RDF data")
