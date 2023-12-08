@@ -89,6 +89,14 @@ class Dataset:
         assert self._mappers is not None
         return self._mappers
 
+    @property
+    def relation_mapper(self) -> "gqs.mapping.RelationMapper":
+        return self.get_mappers()[0]
+
+    @property
+    def entity_mapper(self) -> "gqs.mapping.EntityMapper":
+        return self.get_mappers()[1]
+
     def graphDB_repositoryID(self) -> str:
         return "gqs-" + self.name
 
