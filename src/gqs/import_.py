@@ -10,7 +10,6 @@
 """
 
 
-from enum import pickle_by_global_name
 import logging
 import pickle
 import pathlib
@@ -89,25 +88,119 @@ def _mappers(rel_map: RelationMapper, ent_map: EntityMapper, builder_factory: Ty
     def _2hop(KGlib_query: KGQueryInstance) -> QueryBuilder[T]:
         builder = builder_factory(2, 0)
         builder.set_diameter(2)
-        (e, (r1, r2)) = KGlib_query
+        (e, (r0, r1)) = KGlib_query
         # most builders will map this back..
         builder.set_subject_predicate_entity_object(0,
                                                     ent_map.inverse_lookup(e),
-                                                    rel_map.inverse_lookup(r1),
+                                                    rel_map.inverse_lookup(r0),
                                                     "?var0")
         builder.set_subject_predicate_entity_object(1,
                                                     "?var0",
+                                                    rel_map.inverse_lookup(r1),
+                                                    EntityMapper.get_target_entity_name())
+        return builder
+
+    def _3hop(KGlib_query: KGQueryInstance) -> QueryBuilder[T]:
+        builder = builder_factory(3, 0)
+        builder.set_diameter(3)
+        e, (r0, r1, r2) = KGlib_query
+        # most builders will map this back..
+        builder.set_subject_predicate_entity_object(0,
+                                                    ent_map.inverse_lookup(e),
+                                                    rel_map.inverse_lookup(r0),
+                                                    "?var0")
+        builder.set_subject_predicate_entity_object(1,
+                                                    "?var0",
+                                                    rel_map.inverse_lookup(r1),
+                                                    "?var1")
+        builder.set_subject_predicate_entity_object(2,
+                                                    "?var1",
+                                                    rel_map.inverse_lookup(r2),
+                                                    EntityMapper.get_target_entity_name())
+        return builder
+
+    def _2i(KGlib_query: KGQueryInstance) -> QueryBuilder[T]:
+        builder = builder_factory(2, 0)
+        builder.set_diameter(1)
+        ((e0, (r0,)), (e1, (r1,))) = KGlib_query
+        # most builders will map this back..
+        builder.set_subject_predicate_entity_object(0,
+                                                    ent_map.inverse_lookup(e0),
+                                                    rel_map.inverse_lookup(r0),
+                                                    EntityMapper.get_target_entity_name())
+        builder.set_subject_predicate_entity_object(1,
+                                                    ent_map.inverse_lookup(e1),
+                                                    rel_map.inverse_lookup(r1),
+                                                    EntityMapper.get_target_entity_name())
+        return builder
+
+    def _3i(KGlib_query: KGQueryInstance) -> QueryBuilder[T]:
+        builder = builder_factory(3, 0)
+        builder.set_diameter(1)
+        ((e0, (r0,)), (e1, (r1,)), (e2, (r2,))) = KGlib_query
+        # most builders will map this back..
+        builder.set_subject_predicate_entity_object(0,
+                                                    ent_map.inverse_lookup(e0),
+                                                    rel_map.inverse_lookup(r0),
+                                                    EntityMapper.get_target_entity_name())
+        builder.set_subject_predicate_entity_object(1,
+                                                    ent_map.inverse_lookup(e1),
+                                                    rel_map.inverse_lookup(r1),
+                                                    EntityMapper.get_target_entity_name())
+        builder.set_subject_predicate_entity_object(2,
+                                                    ent_map.inverse_lookup(e2),
                                                     rel_map.inverse_lookup(r2),
                                                     EntityMapper.get_target_entity_name())
 
         return builder
 
-    # TODO other mappers to be added.
+    def _2i_1hop(KGlib_query: KGQueryInstance) -> QueryBuilder[T]:
+        builder = builder_factory(3, 0)
+        builder.set_diameter(2)
+        ((e0, (r0,)), (e1, (r1,))), (r2,) = KGlib_query
+        # most builders will map this back..
+        builder.set_subject_predicate_entity_object(0,
+                                                    ent_map.inverse_lookup(e0),
+                                                    rel_map.inverse_lookup(r0),
+                                                    "?var0")
+        builder.set_subject_predicate_entity_object(1,
+                                                    ent_map.inverse_lookup(e1),
+                                                    rel_map.inverse_lookup(r1),
+                                                    "?var0")
+        builder.set_subject_predicate_entity_object(2,
+                                                    "?var0",
+                                                    rel_map.inverse_lookup(r2),
+                                                    EntityMapper.get_target_entity_name())
+        return builder
+
+    def _1hop_2i(KGlib_query: KGQueryInstance) -> QueryBuilder[T]:
+        builder = builder_factory(3, 0)
+        builder.set_diameter(2)
+        ((e0, (r0, r1)), (e1, (r2,))) = KGlib_query
+        # most builders will map this back..
+        builder.set_subject_predicate_entity_object(0,
+                                                    ent_map.inverse_lookup(e0),
+                                                    rel_map.inverse_lookup(r0),
+                                                    "?var0")
+        builder.set_subject_predicate_entity_object(1,
+                                                    "?var0",
+                                                    rel_map.inverse_lookup(r1),
+                                                    EntityMapper.get_target_entity_name())
+        builder.set_subject_predicate_entity_object(2,
+                                                    ent_map.inverse_lookup(e1),
+                                                    rel_map.inverse_lookup(r2),
+                                                    EntityMapper.get_target_entity_name())
+
+        return builder
 
     mapping: dict[KGQueryShape, tuple[str, Callable[[KGQueryInstance], QueryBuilder[T]]]] = {
         ('e', ('r',)): ("1hop", _1hop),
-        ('e', ('r', 'r')): ("2hop", _2hop)
-        # TODO other mappers to be added.
+        ('e', ('r', 'r')): ("2hop", _2hop),
+        ('e', ('r', 'r', 'r')): ("3hop", _3hop),
+        (('e', ('r',)), ('e', ('r',))): ("2i", _2i),
+        (('e', ('r',)), ('e', ('r',)), ('e', ('r',))): ("3i", _3i),
+        ((('e', ('r',)), ('e', ('r',))), ('r',)): ('2i-1hop', _2i_1hop),
+        (('e', ('r', 'r')), ('e', ('r',))): ('1hop-2i', _1hop_2i)
     }
     return mapping
 
@@ -125,6 +218,8 @@ def _convert_queries(import_source: pathlib.Path, dataset: Dataset) -> None:
     for query_shape, query_instances in queries:
         query_shape = cast(KGQueryShape, query_shape)
         query_instances = cast(list[KGQueryInstance], query_instances)
+        if query_shape not in mappers:
+            raise Exception(f"The shape {query_shape} was not found. Likely not yet implemented")
         query_shape_name, mapper = mappers[query_shape]
         proto_query_data = QueryData()
         for query in query_instances:
