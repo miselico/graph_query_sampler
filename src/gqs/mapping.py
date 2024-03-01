@@ -75,6 +75,26 @@ class RelationMapper:
         """
         return self._mapping[relation]
 
+    def inverse_lookup(self, relation_id: int) -> str:
+        """Get the string representation of the relation with the given id. This is the inverse function of lookup.
+
+        Warning: this can only be used to lookup the string form of forward relations.
+
+        Args:
+            relation_id (int): the id of the relation
+
+        Returns:
+            str: the str which was used as the identifier/label of this relation
+        """
+        assert relation_id > 0 and relation_id < self.get_largest_forward_relation_id(), "inverse_lookup can only be used for forward relations, not for inverses, etc"
+        # created lazily as most applications won't ever call this
+        try:
+            mapping: dict[int, str] = self._inverse_mapping
+        except AttributeError:
+            self._inverse_mapping: dict[int, str] = {v: k for k, v in self._mapping.items() if v < self.get_largest_forward_relation_id()}
+            mapping = self._inverse_mapping
+        return mapping[relation_id]
+
     def get_inverse_of_index(self, relation_index: int) -> int:
         """
         Get the numeric index of a the inverse of the specified relation. The specified relation must be obtained from an earlier lookup call.
@@ -206,6 +226,26 @@ class EntityMapper:
         # We add this as a new mapping so it can be used directly the next time it is needed.
         self._entitiy_and_var_mapping[entity] = index
         return index
+
+    def inverse_lookup(self, id: int) -> str:
+        """Get the string representation of the entity with the given id. This is the inverse function of lookup.
+
+        Warning: this can only be used to lookup the string form of real entities and not of variables nor reified things.
+
+        Args:
+            relation_id (int): the id of the entity
+
+        Returns:
+            str: the str which was used as the identifier/label of this entity
+        """
+        assert id > 0 and id and id < self.number_of_real_entities(), "inverse_lookup can only be used for real entities, not for variables"
+        # created lazily as most applications won't ever call this
+        try:
+            mapping: dict[int, str] = self._inverse_entity_mapping
+        except AttributeError:
+            self._inverse_entity_mapping: dict[int, str] = {v: k for k, v in self._entitiy_and_var_mapping.items() if v < self.number_of_real_entities()}
+            mapping = self._inverse_entity_mapping
+        return mapping[id]
 
     def get_reified_statement_index(self, statement_index: int) -> int:
         """
