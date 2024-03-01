@@ -124,7 +124,7 @@ class EntityMapper:
 
     def __init__(self, entities: Iterable[str], relation_mapper: RelationMapper) -> None:
         """
-        This creates an EntityMapper. The ownership of the entityMapping moves to this object and will be modified.
+        This creates an EntityMapper. The ownership of the RelationMapper moves to this object and will be modified.
         """
         # The normal entities are at the start
         self._normal_entity_start = 0
