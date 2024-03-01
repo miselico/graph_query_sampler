@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 class RelationMapper:
     """
     This RelationMapper manages the identifiers of relations and relation variables.
-    It is initialized with an ordered list of all used relation identifiers and then deterministicallly provides unique numeric indices for these.
+    It is initialized with an ordered list of all used relation identifiers and then deterministically provides unique numeric indices for these.
     Besides, it provides indices for inverse predicates as well as special predicates for relation variables and those used to reify stataments.
     """
 
@@ -34,7 +34,7 @@ class RelationMapper:
         # First space for the normal predicates
         self._predicate_start = 0
         self._normal_predicate_count = len(list(predicates))
-        assert self._normal_predicate_count > 0, "Trying to create a Relationmapper with 0 predicates might is most likely an error."
+        assert self._normal_predicate_count > 0, "Trying to create a RelationMapper with 0 predicates might is most likely an error."
         assert self._normal_predicate_count == len(set(predicates)), "The identifiers in the predicates list were not unique"
         self._mapping = {val: i for (i, val) in enumerate(predicates)}
         self._normal_predicate_end = self._normal_predicate_count - 1
@@ -44,7 +44,7 @@ class RelationMapper:
         self.reified_object_index = self._normal_predicate_end + 3
         # Then we have all the inverses
         self._inverse_start = self._normal_predicate_end + 4
-        # Note: also the refied ones have an inverse.
+        # Note: also the reified ones have an inverse.
         self._inverse_end = self._inverse_start + self._normal_predicate_count + 3 - 1
 
         self._variable_start = self._inverse_end + 1
@@ -111,9 +111,9 @@ class EntityMapper:
     """
     Object used to map entity and entity variables to indices.
 
-    The entities are initialized determinisically with the ordered entities provided during construction.
+    The entities are initialized deterministically with the ordered entities provided during construction.
     This mapper also maintains a mapping for entities representing the relations maintained by the `RelationMapper` this `EntityMapper` gets constructed with.
-    This mapping also maintaind the index of the target variable and makes sure it does not collide with the other indices.
+    This mapping also maintains the index of the target variable and makes sure it does not collide with the other indices.
     The variables are given an index upon first use of a variable. Variable names must be of the form "varX" where X is an integer.
     """
 
@@ -130,11 +130,11 @@ class EntityMapper:
         self._normal_entity_start = 0
         self._normal_entity_count = len(list(entities))
         assert self._normal_entity_count == len(set(entities)), "The identifiers in the entities list were not unique"
-        self._entitiy_and_var_mapping = {val: i for (i, val) in enumerate(entities)}
+        self._entity_and_var_mapping = {val: i for (i, val) in enumerate(entities)}
         self._normal_entity_end = self._normal_entity_count - 1
 
         # Then we have one entity for all real, forward relations
-        # We keep the relation mapping separatly because there could be a collission with the identifiers in self._entity_mapping
+        # We keep the relation mapping separatly because there could be a collision with the identifiers in self._entity_mapping
         self._relation_entity_start = self._normal_entity_end + 1
         self._relation_mapping = {}
         for relation_index in relation_mapper._mapping.values():
@@ -165,7 +165,7 @@ class EntityMapper:
         # Rounding up here. There is no particular reason for this, except that it is easier to recognize while debugging
         next_rounded = ((self._relation_entity_end // 10000) + 1) * 10000
         self.target_index = next_rounded
-        self._entitiy_and_var_mapping[EntityMapper.get_target_entity_name()] = self.target_index
+        self._entity_and_var_mapping[EntityMapper.get_target_entity_name()] = self.target_index
         # Also here, the only reaosn for the offset is for ease of debugging
         self.variable_start = self.target_index + 10000
         self.variable_end = self.variable_start + EntityMapper.MAX_VARIABLE_COUNT
@@ -189,7 +189,7 @@ class EntityMapper:
 
     def lookup(self, entity: str) -> int:
         """Lookup the ID of an entity."""
-        index = self._entitiy_and_var_mapping.get(entity)
+        index = self._entity_and_var_mapping.get(entity)
         if index is not None:
             return index
         # it is not in the index, so it must be a variable which has not been seen before
@@ -204,7 +204,7 @@ class EntityMapper:
             raise Exception(f"Got a key which is not in the mapping, starts with var, but does not have a number after it. Key = {entity}")
         index = self.variable_start + asInt
         # We add this as a new mapping so it can be used directly the next time it is needed.
-        self._entitiy_and_var_mapping[entity] = index
+        self._entity_and_var_mapping[entity] = index
         return index
 
     def get_reified_statement_index(self, statement_index: int) -> int:
