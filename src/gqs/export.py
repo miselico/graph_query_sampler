@@ -47,10 +47,6 @@ def zero_qual_queries_dataset_to_KGReasoning(dataset: Dataset) -> None:
 
     Args:
         dataset (Dataset): the dataset
-        formula (str): The name of thw query in .
-
-    Returns:
-        Mapping[str, Sequence[Tuple]]: Dictionary of tuples.
     """
     relmap, entmap = dataset.get_mappers()
     transforms = _get_transforms(relmap, entmap)
