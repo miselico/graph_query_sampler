@@ -24,9 +24,13 @@ logger = logging.getLogger(__name__)
 
 
 def KGReasoning_to_zero_qual_queries_dataset(import_source: pathlib.Path, dataset: Dataset) -> None:
+    dataset.location().mkdir()
+    dataset.mapping_location().mkdir()
     _convert_mapper(import_source / "id2ent.pkl", dataset.entity_mapping_location())
     _convert_mapper(import_source / "id2rel.pkl", dataset.relation_mapping_location())
+    dataset.splits_location().mkdir(parents=True)
     _convert_graph_splits(import_source, dataset)
+    dataset.query_proto_location().mkdir()
     _convert_queries(import_source, dataset)
 
 
@@ -37,7 +41,7 @@ def _convert_mapper(id2X_file: pathlib.Path, target_file: pathlib.Path):
     num_ids = len(mapping)
     for i in range(num_ids):
         assert i in mapping, f"The id {i} was not found in the mapping file {id2X_file}. Cannot convert"
-    with open(target_file) as output:
+    with open(target_file, "w") as output:
         for i in range(num_ids):
             output.write(f"{mapping[i]}\n")
 
@@ -48,7 +52,7 @@ def _convert_graph_splits(import_source: pathlib.Path, dataset: Dataset) -> None
 
     for source_name, target_name in [("test.txt", "test.nt"), ("valid.txt", "validation.nt"), ("train.txt", "train.nt")]:
         with open(import_source / source_name) as input_file:
-            with open(dataset.splits_location() / target_name) as output_file:
+            with open(dataset.splits_location() / target_name, "w") as output_file:
                 for line in input_file:
                     parts = line.split()
                     assert len(parts) == 3, f"splitting the line {line} in {source_name} did not split in 3 parts"
