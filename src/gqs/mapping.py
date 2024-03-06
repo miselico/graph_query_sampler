@@ -86,7 +86,7 @@ class RelationMapper:
         Returns:
             str: the str which was used as the identifier/label of this relation
         """
-        assert relation_id > 0 and relation_id < self.get_largest_forward_relation_id(), "inverse_lookup can only be used for forward relations, not for inverses, etc"
+        assert relation_id >= 0 and relation_id < self.get_largest_forward_relation_id(), "inverse_lookup can only be used for forward relations, not for inverses, etc"
         # created lazily as most applications won't ever call this
         try:
             mapping: dict[int, str] = self._inverse_mapping
@@ -238,7 +238,7 @@ class EntityMapper:
         Returns:
             str: the str which was used as the identifier/label of this entity
         """
-        assert id > 0 and id and id < self.number_of_real_entities(), "inverse_lookup can only be used for real entities, not for variables"
+        assert id >= 0 and id < self.number_of_real_entities(), "inverse_lookup can only be used for real entities, not for variables"
         # created lazily as most applications won't ever call this
         try:
             mapping: dict[int, str] = self._inverse_entity_mapping

@@ -23,15 +23,15 @@ from gqs.query_representation.query_pb2 import Query, QueryData
 logger = logging.getLogger(__name__)
 
 
-def KGReasoning_to_zero_qual_queries_dataset(import_source: pathlib.Path, dataset: Dataset) -> None:
+def KGReasoning_to_zero_qual_queries_dataset(import_source: pathlib.Path, dataset: Dataset, lenient: bool) -> None:
     dataset.location().mkdir()
     dataset.mapping_location().mkdir()
     _convert_mapper(import_source / "id2ent.pkl", dataset.entity_mapping_location())
     _convert_mapper(import_source / "id2rel.pkl", dataset.relation_mapping_location())
     dataset.splits_location().mkdir(parents=True)
     _convert_graph_splits(import_source, dataset)
-    dataset.query_proto_location().mkdir()
-    _convert_queries(import_source, dataset)
+    dataset.query_proto_location().mkdir(parents=True)
+    _convert_queries(import_source, dataset, lenient)
 
 
 def _convert_mapper(id2X_file: pathlib.Path, target_file: pathlib.Path):
@@ -211,21 +211,35 @@ def _mappers(rel_map: RelationMapper, ent_map: EntityMapper, builder_factory: Ty
     return mapping
 
 
-def _convert_queries(import_source: pathlib.Path, dataset: Dataset) -> None:
+def _convert_queries(import_source: pathlib.Path, dataset: Dataset, lenient: bool) -> None:
+    """Convert the queries to the gqs format
+
+    Args:
+        import_source (pathlib.Path): the folder containing the queries to be imported
+        dataset (Dataset): the target dataset
+        lenient (bool): if false, raises an exception if an unknown query shape is encountered, otherwise logs a warning
+
+    Raises:
+        Exception: raises if an unknown query shape is encountered and lenient is false
+    """
     builder_factory = protobuf_builder(dataset.relation_mapper, dataset.entity_mapper)
     mappers = _mappers(dataset.relation_mapper, dataset.entity_mapper, builder_factory)
-    with open("test-queries.pkl", "rb") as f:
+    with open(import_source / "test-queries.pkl", "rb") as f:
         queries = pickle.load(f)
-    with open("test-easy-answers.pkl", "rb") as f:
+    with open(import_source /"test-easy-answers.pkl", "rb") as f:
         all_easy_answers = pickle.load(f)
-    with open("test-hard-answers.pkl", "rb") as f:
+    with open(import_source /"test-hard-answers.pkl", "rb") as f:
         all_hard_answers = pickle.load(f)
 
-    for query_shape, query_instances in queries:
+    for query_shape, query_instances in queries.items():
         query_shape = cast(KGQueryShape, query_shape)
         query_instances = cast(list[KGQueryInstance], query_instances)
         if query_shape not in mappers:
-            raise Exception(f"The shape {query_shape} was not found. Likely not yet implemented")
+            if lenient:
+                logger.warning(f"The shape {query_shape} was not found. Likely not yet implemented")
+                continue
+            else:
+                raise Exception(f"The shape {query_shape} was not found. Likely not yet implemented")
         query_shape_name, mapper = mappers[query_shape]
         proto_query_data = QueryData()
         for query in query_instances:
@@ -242,3 +256,4 @@ def _convert_queries(import_source: pathlib.Path, dataset: Dataset) -> None:
         output_file_name = output_folder / "test.proto"
         with open(output_file_name, "wb") as output_file:
             output_file.write(proto_query_data.SerializeToString())
+        print(f"Done with shape {query_shape}")

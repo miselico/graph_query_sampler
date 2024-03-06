@@ -329,7 +329,9 @@ This must contain
 Other files are ignored
 """, type=pathlib.Path, required=True)
 @option_dataset
-def kgreasoning_to_csv(import_source: pathlib.Path, dataset: Dataset) -> None:
+@click.option("--force", is_flag=True, help="Remove the contents if something already existed in the specified dataset. Use with care.", type=bool, default=False)
+@click.option("--lenient", is_flag=True, help="Ignore unknown query types rather than raising an exception", type=bool, default=False)
+def kgreasoning_to_csv(import_source: pathlib.Path, dataset: Dataset, force: bool, lenient: bool) -> None:
     """Convert the dataset from kgreasoning format into the format of gqs
     This converts three parts:
     1. the ID mapping
@@ -342,4 +344,6 @@ def kgreasoning_to_csv(import_source: pathlib.Path, dataset: Dataset) -> None:
     Args:
         dataset (Dataset): the dataset to import into. This should be empty
     """
-    KGReasoning_to_zero_qual_queries_dataset(import_source, dataset)
+    if force:
+        raise NotImplementedError("Not yet implemented --force")
+    KGReasoning_to_zero_qual_queries_dataset(import_source, dataset, lenient)
