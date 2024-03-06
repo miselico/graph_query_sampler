@@ -39,7 +39,7 @@ def _convert_mapper(id2X_file: pathlib.Path, target_file: pathlib.Path):
         assert i in mapping, f"The id {i} was not found in the mapping file {id2X_file}. Cannot convert"
     with open(target_file) as output:
         for i in range(num_ids):
-            output.write(mapping[i])
+            output.write(f"{mapping[i]}\n")
 
 
 def _convert_graph_splits(import_source: pathlib.Path, dataset: Dataset) -> None:
