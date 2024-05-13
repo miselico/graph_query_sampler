@@ -9,6 +9,7 @@ from gqs import dataset_split, split_to_triple_store, sample_queries, mapping as
 from gqs.conversion import convert_all, protobuf_builder
 from gqs.dataset import BlankNodeStrategy, Dataset, initialize_dataset, initialize_dataset_from_TSV
 from gqs.export import zero_qual_queries_dataset_to_KGReasoning
+from gqs.import_ import KGReasoning_to_zero_qual_queries_dataset
 
 from ._sparql_execution import execute_sparql_to_result_silenced
 
@@ -309,3 +310,40 @@ def export() -> None:
 def csv_to_kgreasoning(dataset: Dataset) -> None:
     """Convert the queries into a format which can be parsed by KGreasoning."""
     zero_qual_queries_dataset_to_KGReasoning(dataset)
+
+
+@main.group("import")
+def import_() -> None:
+    "Import queries from other formats"
+
+
+@import_.command("from-kgreasoning")
+@click.option("--import-source", help="""The root directory containing the queries in KGReasoning format. \
+This must contain
+    id2ent.pkl
+    id2rel.pkl
+    {test|valid|train}.txt
+    test-easy-answers.pkl
+    test-hard-answers.pkl
+    test-queries.pkl
+Other files are ignored
+""", type=pathlib.Path, required=True)
+@option_dataset
+@click.option("--force", is_flag=True, help="Remove the contents if something already existed in the specified dataset. Use with care.", type=bool, default=False)
+@click.option("--lenient", is_flag=True, help="Ignore unknown query types rather than raising an exception", type=bool, default=False)
+def kgreasoning_to_csv(import_source: pathlib.Path, dataset: Dataset, force: bool, lenient: bool) -> None:
+    """Convert the dataset from kgreasoning format into the format of gqs
+    This converts three parts:
+    1. the ID mapping
+    2. the data splits
+    3. the test queries.
+
+    It does not convert the train and validation queries
+      because it is up to any system to create them the way they want, potentially using the gqs framework.
+
+    Args:
+        dataset (Dataset): the dataset to import into. This should be empty
+    """
+    if force:
+        raise NotImplementedError("Not yet implemented --force")
+    KGReasoning_to_zero_qual_queries_dataset(import_source, dataset, lenient)

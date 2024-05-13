@@ -7,7 +7,7 @@ To install, clone the repository.
 
 We recommend creating a virtual environment using conda.
 
-`conda create --name gqs_env --python=3.10`
+`conda create --name gqs_env --python=3.11`
 
 from the home of this repository:
 

@@ -7,7 +7,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import Iterable, MutableMapping, Optional, Set, TextIO
 
-from gqs.dataset import Dataset, _IRIhashCache
+from gqs.dataset import Dataset
 
 __all__ = [
     "Split", "split_random", "split_round_robin"

@@ -108,19 +108,19 @@ def test_collation(tmp_path: pathlib.Path) -> None:
     assert batch.query_diameter.shape == (batch_size,)
 
     # check global id value range
-    assert ((batch.entity_ids >= 0) & (batch.entity_ids < max_entity_id)).all()  # type: ignore[attr-defined]
-    assert ((batch.relation_ids >= 0) & (batch.relation_ids < max_relation_id)).all()  # type: ignore[attr-defined]
+    assert ((batch.entity_ids >= 0) & (batch.entity_ids < max_entity_id)).all()
+    assert ((batch.relation_ids >= 0) & (batch.relation_ids < max_relation_id)).all()
 
     # check edge index value range
-    assert (batch.edge_index >= 0).all()  # type: ignore[attr-defined]
+    assert (batch.edge_index >= 0).all()
     assert (batch.edge_index < batch.entity_ids.shape[0]).all()
 
     # check edge type value range
-    assert (batch.edge_type >= 0).all()  # type: ignore[attr-defined]
+    assert (batch.edge_type >= 0).all()
     assert (batch.edge_type < batch.relation_ids.shape[0]).all()
 
     # check qualifier index value range
-    assert (batch.qualifier_index >= 0).all()  # type: ignore[attr-defined]
+    assert (batch.qualifier_index >= 0).all()
     # num batch edges
     assert (batch.qualifier_index[2] < batch.edge_index.shape[1]).all()
     # num batch relation ids
@@ -129,11 +129,11 @@ def test_collation(tmp_path: pathlib.Path) -> None:
     assert (batch.qualifier_index[1] < batch.entity_ids.shape[0]).all()
 
     # check graph id value range
-    assert (batch.graph_ids >= 0).all()  # type: ignore[attr-defined]
-    assert (batch.graph_ids < batch_size).all()  # type: ignore[attr-defined]
+    assert (batch.graph_ids >= 0).all()
+    assert (batch.graph_ids < batch_size).all()
 
     # check query diameter value range
-    assert (batch.query_diameter >= 0).all()  # type: ignore[attr-defined]
+    assert (batch.query_diameter >= 0).all()
 
 
 # def _check_geometric(data_geometric: DataGeometric, global_ids: bool = True) -> None:
