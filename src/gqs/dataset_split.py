@@ -34,25 +34,26 @@ def _count_non_comment_lines(input_file: pathlib.Path) -> int:
 
 
 def from_dataset_link_prediction_style(input: pathlib.Path, dataset: Dataset) -> None:
-    cache = _IRIhashCache()
-    # we use the blank node cache as it can be used for any non-compatible string really
+    raise NotImplementedError("It appears there is an issue with this code. It is using the same identitiers for entities and relations and writes them to one file")
+    # cache = _IRIhashCache()
+    # # we use the blank node cache as it can be used for any non-compatible string really
 
-    # create the output directories
-    try:
-        dataset.raw_location().mkdir(parents=True, exist_ok=False)
-        dataset.splits_location().mkdir(parents=True, exist_ok=False)
-    except Exception as e:
-        raise Exception("Make sure the dataset does not exist yet") from e
+    # # create the output directories
+    # try:
+    #     dataset.raw_location().mkdir(parents=True, exist_ok=False)
+    #     dataset.splits_location().mkdir(parents=True, exist_ok=False)
+    # except Exception as e:
+    #     raise Exception("Make sure the dataset does not exist yet") from e
 
-    for split, output_path in [("test.txt", dataset.test_split_location()), ("train.txt", dataset.train_split_location()), ("valid.txt", dataset.validation_split_location())]:
-        input_path = input / split
-        with open(input_path) as open_input_file:
-            with open(output_path, "wt") as open_output_file:
-                for line in open_input_file:
-                    converted = [cache.get_iri(entity.strip()) for entity in line.split()]
-                    line = f"{converted[0]} {converted[1]} {converted[2]} .\n"
-                    open_output_file.write(line)
-    cache.write_mapping(dataset.identifier_mapping_location())
+    # for split, output_path in [("test.txt", dataset.test_split_location()), ("train.txt", dataset.train_split_location()), ("valid.txt", dataset.validation_split_location())]:
+    #     input_path = input / split
+    #     with open(input_path) as open_input_file:
+    #         with open(output_path, "wt") as open_output_file:
+    #             for line in open_input_file:
+    #                 converted = [cache.get_iri(entity.strip()) for entity in line.split()]
+    #                 line = f"{converted[0]} {converted[1]} {converted[2]} .\n"
+    #                 open_output_file.write(line)
+    # cache.write_mapping(dataset.identifier_mapping_location())
 
 
 def split_random(dataset: Dataset, splits: Iterable[Split], seed: int, lines: Optional[int] = None) -> None:
