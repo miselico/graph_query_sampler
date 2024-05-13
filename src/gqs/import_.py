@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 def KGReasoning_to_zero_qual_queries_dataset(import_source: pathlib.Path, dataset: Dataset, lenient: bool) -> None:
-    dataset.location().mkdir()
+    dataset.location().mkdir(parents=True)
     dataset.mapping_location().mkdir()
     _convert_mapper(import_source / "id2ent.pkl", dataset.entity_mapping_location())
     _convert_mapper(import_source / "id2rel.pkl", dataset.relation_mapping_location())

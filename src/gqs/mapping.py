@@ -243,7 +243,7 @@ class EntityMapper:
         try:
             mapping: dict[int, str] = self._inverse_entity_mapping
         except AttributeError:
-            self._inverse_entity_mapping: dict[int, str] = {v: k for k, v in self._entitiy_and_var_mapping.items() if v < self.number_of_real_entities()}
+            self._inverse_entity_mapping: dict[int, str] = {v: k for k, v in self._entity_and_var_mapping.items() if v < self.number_of_real_entities()}
             mapping = self._inverse_entity_mapping
         return mapping[id]
 
