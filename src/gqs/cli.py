@@ -319,7 +319,7 @@ def import_() -> None:
 
 @import_.command("from-kgreasoning")
 @click.option("--import-source", help="""The root directory containing the queries in KGReasoning format. \
-This must contain 
+This must contain
     id2ent.pkl
     id2rel.pkl
     {test|valid|train}.txt

@@ -34,7 +34,7 @@ def KGReasoning_to_zero_qual_queries_dataset(import_source: pathlib.Path, datase
     _convert_queries(import_source, dataset, lenient)
 
 
-def _convert_mapper(id2X_file: pathlib.Path, target_file: pathlib.Path):
+def _convert_mapper(id2X_file: pathlib.Path, target_file: pathlib.Path) -> None:
     with open(id2X_file, "rb") as f:
         mapping = pickle.load(f)
     # sanity checks
@@ -226,9 +226,9 @@ def _convert_queries(import_source: pathlib.Path, dataset: Dataset, lenient: boo
     mappers = _mappers(dataset.relation_mapper, dataset.entity_mapper, builder_factory)
     with open(import_source / "test-queries.pkl", "rb") as f:
         queries = pickle.load(f)
-    with open(import_source /"test-easy-answers.pkl", "rb") as f:
+    with open(import_source / "test-easy-answers.pkl", "rb") as f:
         all_easy_answers = pickle.load(f)
-    with open(import_source /"test-hard-answers.pkl", "rb") as f:
+    with open(import_source / "test-hard-answers.pkl", "rb") as f:
         all_hard_answers = pickle.load(f)
 
     for query_shape, query_instances in queries.items():
