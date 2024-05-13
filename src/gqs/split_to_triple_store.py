@@ -103,7 +103,7 @@ def store_triples_graphDB(dataset: Dataset, data: pathlib.Path, graphname: str, 
     print(data)
     print(url)
     print(files)
-    # mypy 0.950 gives a false positive under python 3.10 See issue #25 on https://github.com/miselico/graph_query_sampler
+    # mypy 1.10.0 gives a false positive under python 3.11 See https://github.com/miselico/graph_query_sampler/issues/25
     response = requests.post(url=url, files=files)  # type: ignore
     if response.status_code != 202:
         raise Exception(f"Unexpected response from triple store. Uploading the file failed: {str(response.content)}")

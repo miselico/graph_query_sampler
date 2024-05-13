@@ -576,9 +576,9 @@ def torch_query_builder(relmap: Optional[RelationMapper], entmap: Optional[Entit
 
         def build(self) -> TorchQuery:
             # checkign that everything is filled
-            assert (self.edge_index != -1).all()  # type: ignore[attr-defined]
-            assert (self.edge_type != -1).all()  # type: ignore[attr-defined]
-            assert (self.qualifiers != -1).all()  # type: ignore[attr-defined]
+            assert (self.edge_index != -1).all()
+            assert (self.edge_type != -1).all()
+            assert (self.qualifiers != -1).all()
             assert self.diameter != -1
             assert self.easy_targets is not None
             assert self.hard_targets is not None
