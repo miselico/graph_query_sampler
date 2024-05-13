@@ -14,7 +14,7 @@ def valid_name(name: str) -> Tuple[bool, str]:
     if re.match(r"^[a-z0-9_]+$", name):
         return True, ""
     else:
-        return False, f"a dataset name must match [_a-z]+, got {name}"
+        return False, f"a dataset name must match [a-z0-9_]+, got {name}. Upper-case letters are not allowed because the Windows file system is not case sensitive."
 
 
 class Dataset:
