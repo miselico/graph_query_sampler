@@ -1,6 +1,5 @@
 """Tests for converting to a stripped (no qualifier) query."""
 import pathlib
-from typing import List
 
 import gqs.dataset_split as dataset_split
 import pytest
@@ -19,12 +18,12 @@ def create_input(tmp_path: pathlib.Path) -> None:
             inputfile.write(f"S{i} P{i} O{i} .\n")
 
 
-def get_split(split: dataset_split.Split) -> List[str]:
+def get_split(split: dataset_split.Split) -> list[str]:
     with open(split.path) as file:
         return file.readlines()
 
 
-def split_n_equal_random(dataset: Dataset, n: int) -> List[dataset_split.Split]:
+def split_n_equal_random(dataset: Dataset, n: int) -> list[dataset_split.Split]:
     fraction = 1.0 / n
     splits = [dataset_split.Split(fraction, dataset.splits_location() / f"split{i}") for i in range(n)]
     dataset_split.split_random(dataset, splits, seed=0)
@@ -64,7 +63,7 @@ def test_three_unbalanced_random_splits(tmp_path: pathlib.Path) -> None:
     assert len(get_split(splits[2])) == 7000
 
 
-def split_n_equal_rr(dataset: Dataset, n: int) -> List[dataset_split.Split]:
+def split_n_equal_rr(dataset: Dataset, n: int) -> list[dataset_split.Split]:
     fraction = 1.0 / n
     splits = [dataset_split.Split(fraction, dataset.splits_location() / f"split{i}") for i in range(n)]
     dataset_split.split_round_robin(dataset, splits)

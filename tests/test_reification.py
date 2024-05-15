@@ -1,7 +1,6 @@
 """Tests for reification."""
 import pathlib
 import tempfile
-from typing import List
 
 from gqs.conversion import protobuf_builder
 from gqs.loader import read_queries_from_proto_with_reification
@@ -41,7 +40,7 @@ def test_reification(tmp_path: pathlib.Path) -> None:
         # we use a normal file instead of a python temp file because a temp file is not guaranteed to be openable twice, which we need here
         proto_file_path = pathlib.Path(directory) / "queries_file.proto"
         queryBuilder.store([theQuery], proto_file_path)
-        reified_queries: List[TorchQuery] = list(read_queries_from_proto_with_reification(proto_file_path, dataset=dataset))
+        reified_queries: list[TorchQuery] = list(read_queries_from_proto_with_reification(proto_file_path, dataset=dataset))
 
         # start asserting stuff
         assert len(reified_queries) == 1
@@ -53,7 +52,7 @@ def test_reification(tmp_path: pathlib.Path) -> None:
         # all subjects must be variables
         subjects = reified_query.edge_index[0, :]
         for s in subjects:
-            assert entmap.is_entity_reified_statement(s.item()), "All subject must be reified statement ids"
+            assert entmap.is_entity_reified_statement(int(s.item())), "All subject must be reified statement ids"
         for triple_nr in range(3):
             # Note: it is not strictly necessary that they appear in this order
             assert reified_query.edge_type[triple_nr * 3] == relmap.reified_subject_index
