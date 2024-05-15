@@ -11,8 +11,7 @@ import traceback
 from collections import defaultdict
 from contextlib import ExitStack
 from pathlib import Path
-from typing import (Any, DefaultDict, Dict, Generator, Iterable, List,
-                    Optional, Tuple)
+from typing import (Any, DefaultDict, Dict, Generator, Iterable, Optional, Tuple)
 
 import pandas as pd
 from gqs.dataset import Dataset
@@ -266,9 +265,9 @@ def _execute_one_query(query: str, destination_path: Path, sparql_endpoint: str,
     result = execute_csv_sparql_silenced(query, sparql_endpoint, sparql_endpoint_options)
     # convert to string and take of the leading '?'
     assert hasattr(result, "vars") and result.vars is not None, f"No variables for formula query, got: {result}"
-    vars: List[Variable] = result.vars
+    vars: list[Variable] = result.vars
 
-    fieldnames: List[str] = [var.toPython()[1:] for var in vars]
+    fieldnames: list[str] = [var.toPython()[1:] for var in vars]
     assert_query_validity(fieldnames)
     all_queries = list(result)
     query_count = len(all_queries)
@@ -385,7 +384,7 @@ def _deterministically_convert_set_column_to_bar_separated(frame: pd.DataFrame, 
         frame[column_name] = frame[column_name].map(lambda the_set: "|".join(sorted(the_set)) if isinstance(the_set, set) else "")
 
 
-def _combine_train_validation_answers(train: pd.DataFrame, validation: pd.DataFrame, target_column: str, common_columns: List[str]) -> pd.DataFrame:
+def _combine_train_validation_answers(train: pd.DataFrame, validation: pd.DataFrame, target_column: str, common_columns: list[str]) -> pd.DataFrame:
     assert train.shape[0] > 0, "There are no train queries in this dataset"
     assert validation.shape[0] > 0, "There are no validation queries in this dataset"
 

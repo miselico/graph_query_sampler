@@ -36,7 +36,7 @@ class RelationMapper:
         self._normal_predicate_count = len(list(predicates))
         assert self._normal_predicate_count > 0, "Trying to create a RelationMapper with 0 predicates might is most likely an error."
         assert self._normal_predicate_count == len(set(predicates)), "The identifiers in the predicates list were not unique"
-        self._mapping = {val: i for (i, val) in enumerate(predicates)}
+        self._mapping: dict[str, int] = {val: i for (i, val) in enumerate(predicates)}
         self._normal_predicate_end = self._normal_predicate_count - 1
         # Then the 3 reification predicates
         self.reified_subject_index = self._normal_predicate_end + 1
@@ -156,7 +156,7 @@ class EntityMapper:
         # Then we have one entity for all real, forward relations
         # We keep the relation mapping separatly because there could be a collision with the identifiers in self._entity_mapping
         self._relation_entity_start = self._normal_entity_end + 1
-        self._relation_mapping = {}
+        self._relation_mapping: dict[int, int] = {}
         for relation_index in relation_mapper._mapping.values():
             # we need to offset all relations by self._relation_entity_start
             index_with_offset = self._relation_entity_start + relation_index
@@ -243,7 +243,7 @@ class EntityMapper:
         try:
             mapping: dict[int, str] = self._inverse_entity_mapping
         except AttributeError:
-            self._inverse_entity_mapping: dict[int, str] = {v: k for k, v in self._entitiy_and_var_mapping.items() if v < self.number_of_real_entities()}
+            self._inverse_entity_mapping: dict[int, str] = {v: k for k, v in self._entity_and_var_mapping.items() if v < self.number_of_real_entities()}
             mapping = self._inverse_entity_mapping
         return mapping[id]
 
@@ -407,7 +407,7 @@ def get_entity_mapper(dataset: "gqs.dataset.Dataset", relmap: RelationMapper) ->
         entities = [entity.strip() for entity in entity_file.readlines()]
         return EntityMapper(entities, relmap)
 
-# def _pad_statements_(data: List[list], max_len: int) -> List[list]:
+# def _pad_statements_(data: list[list], max_len: int) -> list[list]:
 #     """Padding index is always 0 as in the embedding layers of models. Cool? Cool. """
 #     result = [
 #         statement + [0] * (max_len - len(statement)) if len(statement) < max_len else statement[:max_len]
@@ -430,7 +430,7 @@ def get_entity_mapper(dataset: "gqs.dataset.Dataset", relmap: RelationMapper) ->
 #     return mapping
 
 
-# def __sort_map_pairs_by_numeric_string_key(the_map: Mapping[str, int]) -> List[Tuple[str, int]]:
+# def __sort_map_pairs_by_numeric_string_key(the_map: Mapping[str, int]) -> list[Tuple[str, int]]:
 #     """Sort mapping pairs by a numeric string key."""
 #     as_pairs = list(the_map.items())
 
@@ -448,7 +448,7 @@ def get_entity_mapper(dataset: "gqs.dataset.Dataset", relmap: RelationMapper) ->
 
 # def _get_uniques_(
 #     *data: Iterable[Sequence[T]],
-# ) -> Tuple[List[T], List[T]]:
+# ) -> Tuple[list[T], list[T]]:
 #     """ Throw in parsed_data/wd50k/ files and we'll count the entities and predicates"""
 #     entities: Set[T] = set()
 #     relations: Set[T] = set()
@@ -458,7 +458,7 @@ def get_entity_mapper(dataset: "gqs.dataset.Dataset", relmap: RelationMapper) ->
 #     return sorted(entities), sorted(relations)
 
 
-# def remove_dups(data: List[list]) -> List[list]:
+# def remove_dups(data: list[list]) -> list[list]:
 #     """
 #     Remove duplicates.
 

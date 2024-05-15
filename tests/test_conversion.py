@@ -1,4 +1,3 @@
-from typing import List
 from gqs.conversion import _get_triple_and_qualifier_count_from_headers
 import pytest
 
@@ -13,7 +12,7 @@ testdata = [
 
 
 @pytest.mark.parametrize("fields,expected_triples,expected_quals", testdata)
-def test_count_triples_and_qualifiers_from_list(fields: List[str], expected_triples: int, expected_quals: int) -> None:
+def test_count_triples_and_qualifiers_from_list(fields: list[str], expected_triples: int, expected_quals: int) -> None:
     triples, quals = _get_triple_and_qualifier_count_from_headers(fields)
     assert triples == expected_triples
     assert quals == expected_quals

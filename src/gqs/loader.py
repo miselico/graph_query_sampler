@@ -10,10 +10,10 @@ import logging
 from collections import defaultdict
 from pathlib import Path
 import pathlib
-from typing import Any, Callable, DefaultDict, Iterable, List, Mapping, Sequence, Tuple
+from typing import Any, Callable, DefaultDict, Iterable, Mapping, Sequence, Tuple, cast, no_type_check
 
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, ConcatDataset
 
 from .conversion import torch_query_builder
 # from .generated.query_pb2 import QueryData as pb_QueryData
@@ -44,7 +44,7 @@ class DatafileInfo:
 
 class Information:
     def __init__(self) -> None:
-        self.info: DefaultDict[str, List[Any]] = defaultdict(list)
+        self.info: DefaultDict[str, list[Any]] = defaultdict(list)
 
     def append_info(self, split_name: str, data_root: pathlib.Path, sample: Sample, loaded: Iterable[DatafileInfo]) -> None:
         self.info[split_name].append(
@@ -91,7 +91,7 @@ def get_query_datasets(
     logger.info(f"Using data_root={data_root.as_uri()}")
 
     # the procedure is the same for each of the splits. Only the splits selected are different.
-    datasets = dict()
+    datasets: dict[str, Dataset[TorchQuery]] = dict()
     # store information about the actually loaded data.
     information = Information()
     for split_name, split in dict(
@@ -100,10 +100,10 @@ def get_query_datasets(
         test=test,
     ).items():
         # collect all samples
-        all_samples = []
+        all_samples: list[__OneFileDataset] = []
         for sample in split:
             total_available = 0
-            datafiles_and_info: List[DatafileInfo] = []
+            datafiles_and_info: list[DatafileInfo] = []
             glob_pattern = "./" + sample.selector + "/**/*" + split_name + "_stats.json"
             stat_files = list(data_root.glob(glob_pattern))
             assert len(stat_files) > 0, f"The number of files for split {split_name} and pattern {sample.selector} was empty. This is close to always a mistake in the selector."
@@ -149,7 +149,7 @@ def get_query_datasets(
             for datafile_and_info in datafiles_and_info:
                 all_samples.append(__OneFileDataset(dataset, datafile_and_info.source_file, datafile_and_info.amount_requested, sample.reify, sample.remove_qualifiers))
         if all_samples:
-            concatenated_dataset = torch.utils.data.ConcatDataset(all_samples) if split else __EmptyDataSet()
+            concatenated_dataset: Dataset[TorchQuery] = ConcatDataset(all_samples) if split else __EmptyDataSet()
             datasets[split_name] = concatenated_dataset
         else:
             logger.error(f"No samples for split {split_name}")
@@ -224,7 +224,7 @@ def read_queries_from_proto_with_reification(
         # set diameter and targets
         b.set_diameter(query.diameter)
         for targets, assign_to in [(query.easy_targets, b.set_easy_entity_targets_ID), (query.hard_targets, b.set_hard_entity_targets_ID)]:
-            entity_targets: List[int] = []
+            entity_targets: list[int] = []
             for t in targets:
                 assert t.HasField("entity"), "Converting queries with literal values to tensors is not supported."
                 entity_targets.append(t.entity)
@@ -280,7 +280,7 @@ def read_queries_from_proto_without_reification(
         # set diameter and targets
         b.set_diameter(query.diameter)
         for targets, assign_to in [(query.easy_targets, b.set_easy_entity_targets_ID), (query.hard_targets, b.set_hard_entity_targets_ID)]:
-            entity_targets: List[int] = []
+            entity_targets: list[int] = []
             for t in targets:
                 assert t.HasField("entity"), "Converting queries with literal values to tensors is not supported."
                 entity_targets.append(t.entity)
@@ -313,10 +313,11 @@ class __OneFileDataset(Dataset[TorchQuery]):
         return self.data[item]
 
 
+@no_type_check
 def _unique_with_inverse(*tensors: LongTensor) -> Tuple[LongTensor, Sequence[LongTensor]]:
     # get unique IDs over all these tensors, and the flat inverse
     concatenated: torch.Tensor = torch.cat([t.view(-1) for t in tensors], dim=0)
-    unique, flat_inverse = concatenated.unique(return_inverse=True)  # type: ignore
+    unique, flat_inverse = concatenated.unique(return_inverse=True)
 
     # decompose inverse into the individual tensors
     inverse_flat_tensors = flat_inverse.split([t.numel() for t in tensors])
@@ -397,14 +398,14 @@ def collate_query_data(dataset: QuerySamplerDataSet) -> Callable[[Sequence[Torch
             A QueryGraphBatch with all colated data
         """
         _, entmap = dataset.get_mappers()
-        global_entity_ids = []
-        global_relation_ids = []
-        edge_index = []
-        edge_type = []
-        qualifier_index = []
-        query_diameter = []
-        easy_targets: List[LongTensor] = []
-        hard_targets: List[LongTensor] = []
+        global_entity_ids: list[LongTensor] = []
+        global_relation_ids: list[LongTensor] = []
+        edge_index: list[LongTensor] = []
+        edge_type: list[LongTensor] = []
+        qualifier_index: list[LongTensor] = []
+        query_diameter: list[LongTensor] = []
+        easy_targets: list[LongTensor] = []
+        hard_targets: list[LongTensor] = []
 
         entity_offset = relation_offset = edge_offset = 0
         for i, query_data in enumerate(batch):
@@ -516,7 +517,7 @@ def get_query_data_loaders(
     test: Iterable[Sample],
     batch_size: int = 16,
     num_workers: int = 0,
-) -> Tuple[Mapping[str, torch.utils.data.DataLoader[TorchQuery]], Information]:
+) -> Tuple[Mapping[str, DataLoader[QueryGraphBatch]], Information]:
     """
     Get data loaders for query datasets.
 
@@ -532,16 +533,16 @@ def get_query_data_loaders(
         is a dictionary comprising information about the actually loaded data.
     """
     data_splits, information = get_query_datasets(dataset, train, validation, test)
-    loaders: Mapping[str, DataLoader[TorchQuery]] = {
-        splitname: DataLoader(
+    loaders: Mapping[str, DataLoader[QueryGraphBatch]] = {
+        split_name: cast(DataLoader[QueryGraphBatch], DataLoader(  # we need to cast because torch typing does not propagate the output type of the collate function
             dataset=data_split,
             batch_size=batch_size,
-            shuffle=splitname == "train",
+            shuffle=split_name == "train",
             collate_fn=collate_query_data(dataset),
             pin_memory=True,
-            drop_last=splitname == "train",
+            drop_last=split_name == "train",
             num_workers=num_workers,
-        )
-        for splitname, data_split in data_splits.items()
+        ))
+        for split_name, data_split in data_splits.items()
     }
     return loaders, information

@@ -3,7 +3,7 @@ from enum import Enum
 import hashlib
 from pathlib import Path
 import re
-from typing import Callable, List, MutableMapping, Optional, TextIO, Tuple
+from typing import Callable, MutableMapping, Optional, TextIO, Tuple
 import logging
 import gqs.mapping
 
@@ -196,7 +196,7 @@ def initialize_dataset(input: Path, dataset: Dataset, blank_node_strategy: Blank
             elif blank_node_strategy == BlankNodeStrategy.CONVERT:
                 # We take the blank node(s), hash each of them, and cretae new URLs with these hashes
                 assert len(parts) == 3
-                converted: List[str] = []
+                converted: list[str] = []
                 if blanks[0]:
                     converted.append(blank_node_cache.get_iri(parts[0]))
                 else:

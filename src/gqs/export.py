@@ -5,7 +5,7 @@ This code is inspired by an notebook for conversion by Max Zwager
 import logging
 import pickle
 import pathlib
-from typing import Any, Callable, List, Tuple
+from typing import Any, Callable, Tuple
 import pandas as pd
 from gqs.dataset import Dataset
 from gqs.mapping import RelationMapper, EntityMapper
@@ -56,7 +56,7 @@ def zero_qual_queries_dataset_to_KGReasoning(dataset: Dataset) -> None:
         queries_output_location = dataset.export_kgreasoning_location() / (kgreasoning_name + "-queries.pkl")
         easy_answers_output_location = None if split == "train" else dataset.export_kgreasoning_location() / (kgreasoning_name + "-easy-answers.pkl")
         hard_answers_output_location = dataset.export_kgreasoning_location() / ("train-answers.pkl" if split == "train" else kgreasoning_name + "-hard-answers.pkl")
-        all_queries: dict[Tuple[Any, ...], List[Tuple[Any, ...]]] = {}
+        all_queries: dict[Tuple[Any, ...], list[Tuple[Any, ...]]] = {}
         all_easy_answers: dict[Tuple[Any, ...], set[int]] = {}
         all_hard_answers: dict[Tuple[Any, ...], set[int]] = {}
         for pattern in transforms.keys():
@@ -94,7 +94,7 @@ def _zero_qual_queries_csv_to_KGReasoning(
     input_location: pathlib.Path,
     mapper: Callable[[pd.Series], Tuple[Any, ...]],
     entity_mapper: EntityMapper
-) -> tuple[List[Tuple[Any, ...]], dict[Tuple[Any, ...], set[int]], dict[Tuple[Any, ...], set[int]]]:
+) -> tuple[list[Tuple[Any, ...]], dict[Tuple[Any, ...], set[int]], dict[Tuple[Any, ...], set[int]]]:
 
     df = pd.read_csv(input_location, sep=',', keep_default_na=False)
     # df.drop(    # Drop columns containing variables and diameter
