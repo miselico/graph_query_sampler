@@ -10,6 +10,7 @@
 """
 
 
+import json
 import logging
 import pickle
 import pathlib
@@ -256,4 +257,16 @@ def _convert_queries(import_source: pathlib.Path, dataset: Dataset, lenient: boo
         output_file_name = output_folder / "test.proto"
         with open(output_file_name, "wb") as output_file:
             output_file.write(proto_query_data.SerializeToString())
+        # We also need a stats file for this, creating that here
+        stats_file_name = output_folder / "test_stats.json"
+        stats = {"name": "test", "count": len(query_instances), "hash": f"converted_from_{import_source}_{query_shape}"}
+        try:
+            with stats_file_name.open(mode="w") as stats_file:
+                json.dump(stats, stats_file)
+        except Exception:
+            # something went wrong writing the stats file, best to remove it and crash.
+            logger.error("Failed writing the stats, removing the file to avoid inconsistent state")
+            if stats_file_name.exists():
+                stats_file_name.unlink()
+            raise
         print(f"Done with shape {query_shape}")

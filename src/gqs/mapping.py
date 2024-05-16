@@ -200,11 +200,11 @@ class EntityMapper:
         """
 
     def number_of_real_entities(self) -> int:
-        """Get the number of entities this mapper was initialized with. This does not include entities representing relations, nor entities for variables and tartgets """
+        """Get the number of entities this mapper was initialized with. This does not include entities representing relations, nor entities for variables and targets """
         return self._normal_entity_count
 
     def number_of_entities_and_reified_relations_without_vars_and_targets(self) -> int:
-        """Get the number of entities this mapper was initialized with and the number of entities used for representing relations. This does not include entities for variables, tartgets, and reified statement."""
+        """Get the number of entities this mapper was initialized with and the number of entities used for representing relations. This does not include entities for variables, targets, and reified statement."""
         return self._relation_entity_end
 
     def lookup(self, entity: str) -> int:
