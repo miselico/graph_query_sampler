@@ -83,7 +83,7 @@ def test_collation(tmp_path: pathlib.Path) -> None:
     # generate random graphs
     graphs = _get_random_graphs(max_entity_id=max_entity_id, max_relation_id=max_relation_id, num_graphs=batch_size)
 
-    collator = collate_query_data(MockDataset(tmp_path))
+    collator = collate_query_data(MockDataset(tmp_path), add_relation_inverses=False)
 
     # apply collation
     batch = collator(graphs)

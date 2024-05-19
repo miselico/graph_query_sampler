@@ -384,7 +384,7 @@ class QueryGraphBatch:
         assert self.hard_targets is not None
 
 
-def collate_query_data(dataset: QuerySamplerDataSet) -> Callable[[Sequence[TorchQuery]], QueryGraphBatch]:
+def collate_query_data(dataset: QuerySamplerDataSet, add_relation_inverses: bool) -> Callable[[Sequence[TorchQuery]], QueryGraphBatch]:
     def _collate_query_data(
         batch: Sequence[TorchQuery],
     ) -> QueryGraphBatch:
@@ -409,6 +409,8 @@ def collate_query_data(dataset: QuerySamplerDataSet) -> Callable[[Sequence[Torch
 
         entity_offset = relation_offset = edge_offset = 0
         for i, query_data in enumerate(batch):
+            if add_relation_inverses:
+                query_data = query_data.with_inverses(dataset.relation_mapper)
             # append query diameter
             query_diameter.append(query_data.query_diameter)
 
@@ -515,18 +517,19 @@ def get_query_data_loaders(
     train: Iterable[Sample],
     validation: Iterable[Sample],
     test: Iterable[Sample],
+    add_relation_inverses: bool = False,
     batch_size: int = 16,
     num_workers: int = 0,
 ) -> Tuple[Mapping[str, DataLoader[QueryGraphBatch]], Information]:
     """
     Get data loaders for query datasets.
 
+    :param add_relation_inverses:
+        By default, the query graphs do not have inverse relations. If set to True, this will add the inverse edges during the collation
     :param batch_size:
         The batch size to use for all data loaders.
     :param num_workers:
         The number of worker processes to use for loading. 0 means that the data is loaded in the main process.
-    :param kwargs:
-        Additional keyword-based arguments passed to ``get_query_datasets``.
 
     :return:
         A pair loaders, information, where loaders is a dictionary from split names to the data loaders, and information
@@ -538,7 +541,7 @@ def get_query_data_loaders(
             dataset=data_split,
             batch_size=batch_size,
             shuffle=split_name == "train",
-            collate_fn=collate_query_data(dataset),
+            collate_fn=collate_query_data(dataset, add_relation_inverses),
             pin_memory=True,
             drop_last=split_name == "train",
             num_workers=num_workers,
