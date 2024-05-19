@@ -10,10 +10,11 @@
 """
 
 
+import json
 import logging
 import pickle
 import pathlib
-from typing import Any, Callable, Type, TypeVar, cast
+from typing import Any, Callable, Literal, Type, TypeVar, cast
 from gqs.conversion import protobuf_builder
 from gqs.dataset import Dataset
 from gqs.mapping import RelationMapper, EntityMapper
@@ -23,7 +24,8 @@ from gqs.query_representation.query_pb2 import Query, QueryData
 logger = logging.getLogger(__name__)
 
 
-def KGReasoning_to_zero_qual_queries_dataset(import_source: pathlib.Path, dataset: Dataset, lenient: bool) -> None:
+def KGReasoning_to_zero_qual_queries_dataset(import_source: pathlib.Path, dataset: Dataset, lenient: bool, splits: list[Literal["train", "test", "validation"]] | None = None) -> None:
+    splits = splits or ["train", "test", "validation"]
     dataset.location().mkdir(parents=True)
     dataset.mapping_location().mkdir()
     _convert_mapper(import_source / "id2ent.pkl", dataset.entity_mapping_location())
@@ -31,7 +33,11 @@ def KGReasoning_to_zero_qual_queries_dataset(import_source: pathlib.Path, datase
     dataset.splits_location().mkdir(parents=True)
     _convert_graph_splits(import_source, dataset)
     dataset.query_proto_location().mkdir(parents=True)
-    _convert_queries(import_source, dataset, lenient)
+    for split in splits:
+        if split == "train":
+            _convert_queries(import_source, dataset, lenient, split, add_answers_train(import_source, dataset))
+        else:
+            _convert_queries(import_source, dataset, lenient, split, add_answers_test_validation(import_source, dataset, split))
 
 
 def _convert_mapper(id2X_file: pathlib.Path, target_file: pathlib.Path) -> None:
@@ -206,30 +212,70 @@ def _mappers(rel_map: RelationMapper, ent_map: EntityMapper, builder_factory: Ty
         (('e', ('r',)), ('e', ('r',))): ("2i", _2i),
         (('e', ('r',)), ('e', ('r',)), ('e', ('r',))): ("3i", _3i),
         ((('e', ('r',)), ('e', ('r',))), ('r',)): ('2i-1hop', _2i_1hop),
-        (('e', ('r', 'r')), ('e', ('r',))): ('1hop-2i', _1hop_2i)
+        (('e', ('r', 'r')), ('e', ('r',))): ('1hop-2i', _1hop_2i),
     }
     return mapping
 
 
-def _convert_queries(import_source: pathlib.Path, dataset: Dataset, lenient: bool) -> None:
+Answer_Adder_Type = Callable[[QueryBuilder[Query], KGQueryInstance], None]
+
+
+def add_answers_test_validation(import_source: pathlib.Path, dataset: Dataset, split: Literal["test"] | Literal["validation"]) -> Answer_Adder_Type:
+    if split == "validation":
+        kg_reasoning_split = "valid"
+    else:
+        kg_reasoning_split = "test"
+    with open(import_source / f"{kg_reasoning_split}-easy-answers.pkl", "rb") as f:
+        all_easy_answers = pickle.load(f)
+    with open(import_source / f"{kg_reasoning_split}-hard-answers.pkl", "rb") as f:
+        all_hard_answers = pickle.load(f)
+
+    def answer_adder(builder: QueryBuilder[Query], query: KGQueryInstance) -> None:
+        easy_answers = all_easy_answers[query]
+        builder.set_easy_entity_targets([dataset.entity_mapper.inverse_lookup(t) for t in easy_answers])
+        hard_answers = all_hard_answers[query]
+        builder.set_hard_entity_targets([dataset.entity_mapper.inverse_lookup(t) for t in hard_answers])
+    return answer_adder
+
+
+def add_answers_train(import_source: pathlib.Path, dataset: Dataset) -> Answer_Adder_Type:
+    """Add answers for a training set. This assumes the file "train-answers.pkl"
+
+    Args:
+        import_source (pathlib.Path): The import directory
+        dataset (Dataset): dataset where the import will be written to, used for mapping indices
+
+    Returns:
+        Answer_Adder_Type: A function to be used for the converter
+    """
+    with open(import_source / "train-answers.pkl", "rb") as f:
+        all_answers = pickle.load(f)
+
+    def answer_adder(builder: QueryBuilder[Query], query: KGQueryInstance) -> None:
+        answers = all_answers[query]
+        builder.set_easy_entity_targets([dataset.entity_mapper.inverse_lookup(t) for t in answers])
+    return answer_adder
+
+
+def _convert_queries(import_source: pathlib.Path, dataset: Dataset, lenient: bool, split: str, answer_adder: Answer_Adder_Type) -> None:
     """Convert the queries to the gqs format
 
     Args:
         import_source (pathlib.Path): the folder containing the queries to be imported
         dataset (Dataset): the target dataset
         lenient (bool): if false, raises an exception if an unknown query shape is encountered, otherwise logs a warning
-
+        answer_adder: the function used to add the answers. This is different for train vs validation and test. One could also implement something which gets answers from a database
     Raises:
         Exception: raises if an unknown query shape is encountered and lenient is false
     """
     builder_factory = protobuf_builder(dataset.relation_mapper, dataset.entity_mapper)
     mappers = _mappers(dataset.relation_mapper, dataset.entity_mapper, builder_factory)
-    with open(import_source / "test-queries.pkl", "rb") as f:
+    if split == "validation":
+        kg_reasoning_split = "valid"
+    else:
+        kg_reasoning_split = split
+    with open(import_source / f"{kg_reasoning_split}-queries.pkl", "rb") as f:
         queries = pickle.load(f)
-    with open(import_source / "test-easy-answers.pkl", "rb") as f:
-        all_easy_answers = pickle.load(f)
-    with open(import_source / "test-hard-answers.pkl", "rb") as f:
-        all_hard_answers = pickle.load(f)
 
     for query_shape, query_instances in queries.items():
         query_shape = cast(KGQueryShape, query_shape)
@@ -244,16 +290,25 @@ def _convert_queries(import_source: pathlib.Path, dataset: Dataset, lenient: boo
         proto_query_data = QueryData()
         for query in query_instances:
             builder = mapper(query)
-            easy_answers = all_easy_answers[query]
-            builder.set_easy_entity_targets([dataset.entity_mapper.inverse_lookup(t) for t in easy_answers])
-            hard_answers = all_hard_answers[query]
-            builder.set_hard_entity_targets([dataset.entity_mapper.inverse_lookup(t) for t in hard_answers])
+            answer_adder(builder, query)
             proto_query: Query = builder.build()
             proto_query_data.queries.append(proto_query)
 
         output_folder = dataset.query_proto_location() / query_shape_name / "0qual"
-        output_folder.mkdir(parents=True)
-        output_file_name = output_folder / "test.proto"
+        output_folder.mkdir(parents=True, exist_ok=True)
+        output_file_name = output_folder / f"{split}.proto"
         with open(output_file_name, "wb") as output_file:
             output_file.write(proto_query_data.SerializeToString())
+        # We also need a stats file for this, creating that here
+        stats_file_name = output_folder / f"{split}_stats.json"
+        stats = {"name": split, "count": len(query_instances), "hash": f"converted_from_{import_source}_{query_shape}"}
+        try:
+            with stats_file_name.open(mode="w") as stats_file:
+                json.dump(stats, stats_file)
+        except Exception:
+            # something went wrong writing the stats file, best to remove it and crash.
+            logger.error("Failed writing the stats, removing the file to avoid inconsistent state")
+            if stats_file_name.exists():
+                stats_file_name.unlink()
+            raise
         print(f"Done with shape {query_shape}")
