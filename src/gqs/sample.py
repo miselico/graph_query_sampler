@@ -32,8 +32,8 @@ class Sample:
             respective node as the subject.In effect, the queries will have explicit qualifiers.
 
             This option conflicts with remove_qualifiers. Only one of these two can be True
-        remove_qualifiers: bool, defaul = False
-            Must qaulifiers be removed from the queries? If True, the qualifiers tensor will not contain anything.
+        remove_qualifiers: bool, default = False
+            Must qualifiers be removed from the queries? If True, the qualifiers tensor will not contain anything.
 
             This option conflicts with reify. Only one of these two can be True
 
@@ -44,6 +44,7 @@ class Sample:
             f"Illegal amount specification, got {amount}. Check the documentation."
         assert not (remove_qualifiers and reify), "Asked to both reify and remove qualifiers, this is almost certainly a mistake."
         self.selector = selector
+        self._amount: Callable[[int], int]
         if isinstance(amount, int):
             int_amount: int = amount
 
@@ -81,7 +82,7 @@ def resolve_sample(
         # elif amount.startswith("atmost"):
         #     amount = amount[6:]
         #     try:
-        #         # using a different variable beacause of scoping of the nested fucntion.
+        #         # using a different variable because of scoping of the nested function.
         #         maximum_amount = int(amount)
 
         #     except ValueError as v:

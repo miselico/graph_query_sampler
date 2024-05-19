@@ -51,36 +51,36 @@ class QueryBuilder(Generic[T], ABC):
         pass
 
     @abstractmethod
-    def set_literal_object(self, index: int, litral_value: str) -> None:
+    def set_literal_object(self, index: int, literal_value: str) -> None:
         pass
 
     @abstractmethod
     def set_predicate(self, index: int, predicate: str) -> None:
         pass
 
-    def set_subject_predicate_entity_object(self, tripleIndex: int, subject: str, predicate: str, obj: str) -> None:
+    def set_subject_predicate_entity_object(self, triple_index: int, subject: str, predicate: str, obj: str) -> None:
         """Helper function to set subject, predicate and object at once"""
-        self.set_subject(tripleIndex, subject)
-        self.set_predicate(tripleIndex, predicate)
-        self.set_entity_object(tripleIndex, obj)
+        self.set_subject(triple_index, subject)
+        self.set_predicate(triple_index, predicate)
+        self.set_entity_object(triple_index, obj)
 
     @abstractmethod
-    def set_qualifier_rel(self, tripleIndex: int, index: int, predicate: str) -> None:
+    def set_qualifier_rel(self, triple_index: int, qualifier_index: int, predicate: str) -> None:
         pass
 
     @abstractmethod
-    def set_qualifier_entity_val(self, tripleIndex: int, index: int, value: str) -> None:
+    def set_qualifier_entity_val(self, triple_index: int, qualifier_index: int, value: str) -> None:
         pass
 
-    def set_qualifier_rel_entity_val(self, tripleIndex: int, qualifier_index: int, predicate: str, value: str) -> None:
+    def set_qualifier_rel_entity_val(self, triple_index: int, qualifier_index: int, predicate: str, value: str) -> None:
         """
-        Set the relation `predicate` and value `value` for the qualifier attached to triple with index `tripleIndex` and qualifier index `qualifier_index`
+        Set the relation `predicate` and value `value` for the qualifier attached to triple with index `triple_index` and qualifier index `qualifier_index`
         """
-        self.set_qualifier_rel(tripleIndex, qualifier_index, predicate)
-        self.set_qualifier_entity_val(tripleIndex, qualifier_index, value)
+        self.set_qualifier_rel(triple_index, qualifier_index, predicate)
+        self.set_qualifier_entity_val(triple_index, qualifier_index, value)
 
     @abstractmethod
-    def set_qualifier_literal_val(self, tripleIndex: int, index: int, value: str) -> None:
+    def set_qualifier_literal_val(self, triple_index: int, qualifier_index: int, literal_value: str) -> None:
         pass
 
     @abstractmethod
@@ -349,25 +349,25 @@ def protobuf_builder(relmap: RelationMapper, entmap: EntityMapper) -> Type[Query
             self.query.triples[index].predicate = predicate_index
             self._is_triple_set[index][1] = True
 
-        def set_qualifier_rel(self, tripleIndex: int, qualifier_index: int, predicate: str) -> None:
+        def set_qualifier_rel(self, triple_index: int, qualifier_index: int, predicate: str) -> None:
             assert not self._is_qual_set[qualifier_index][0], f"The relation for qualifier with index {qualifier_index} has already been set"
             # set forward
             predicateIndex = relmap.lookup(predicate)
             self.query.qualifiers[qualifier_index].qualifier_relation = predicateIndex
-            self.query.qualifiers[qualifier_index].corresponding_triple = tripleIndex
+            self.query.qualifiers[qualifier_index].corresponding_triple = triple_index
             self._is_qual_set[qualifier_index][0] = True
 
-        def set_qualifier_entity_val(self, tripleIndex: int, qualifier_index: int, value: str) -> None:
+        def set_qualifier_entity_val(self, triple_index: int, qualifier_index: int, value: str) -> None:
             assert not self._is_qual_set[qualifier_index][1], f"The value for qualifier with index {qualifier_index} has already been set"
             valueIndex = entmap.lookup(value)
             # we can be sure that the oneof has not been set because of the assert at the top of this method
             self.query.qualifiers[qualifier_index].qualifier_value.entity = valueIndex
             self._is_qual_set[qualifier_index][1] = True
 
-        def set_qualifier_literal_val(self, tripleIndex: int, qualifier_index: int, value: str) -> None:
+        def set_qualifier_literal_val(self, triple_index: int, qualifier_index: int, literal_value: str) -> None:
             assert not self._is_qual_set[qualifier_index][1], f"The value for qualifier with index {qualifier_index} has already been set"
             # we can be sure that the oneof has not been set because of the assert at the top of this method
-            self.query.qualifiers[qualifier_index].qualifier_value.literal = value
+            self.query.qualifiers[qualifier_index].qualifier_value.literal = literal_value
             self._is_qual_set[qualifier_index][1] = True
 
         def _set_easy_targets(self, values: Iterable[pb_EntityOrLiteral]) -> None:
@@ -424,7 +424,7 @@ def protobuf_builder(relmap: RelationMapper, entmap: EntityMapper) -> Type[Query
 
 class TorchQueryBuilder(QueryBuilder[TorchQuery]):
     @abstractmethod
-    def set_subject_predicate_entitiy_object_ID(self, triple_index: int, subject: int, predicate: int, object: int) -> None:
+    def set_subject_predicate_entity_object_ID(self, triple_index: int, subject: int, predicate: int, object: int) -> None:
         raise NotImplementedError()
 
     @abstractmethod
@@ -436,11 +436,11 @@ class TorchQueryBuilder(QueryBuilder[TorchQuery]):
         pass
 
     @abstractmethod
-    def set_qualifier_rel_ID(self, qualifier_index: int, predicateIndex: int, tripleIndex: int) -> None:
+    def set_qualifier_rel_ID(self, qualifier_index: int, predicateIndex: int, triple_index: int) -> None:
         pass
 
     @abstractmethod
-    def set_qualifier_entity_val_ID(self, qualifier_index: int, value_index: int, tripleIndex: int) -> None:
+    def set_qualifier_entity_val_ID(self, qualifier_index: int, value_index: int, triple_index: int) -> None:
         pass
 
 
@@ -495,7 +495,7 @@ def torch_query_builder(relmap: Optional[RelationMapper], entmap: Optional[Entit
             # set normal edge
             self.set_entity_object_ID(index, entity_index)
 
-        def set_literal_object(self, index: int, entity: str) -> None:
+        def set_literal_object(self, index: int, literal_value: str) -> None:
             raise NotImplementedError("Tensor builder does not support literals, use protocol buffers.")
 
         def set_entity_object_ID(self, index: int, entity_index: int) -> None:
@@ -512,7 +512,7 @@ def torch_query_builder(relmap: Optional[RelationMapper], entmap: Optional[Entit
             assert self.edge_type[index] == -1
             self.edge_type[index] = predicate_index
 
-        def set_subject_predicate_entitiy_object_ID(self, triple_index: int, subject: int, predicate: int, object: int) -> None:
+        def set_subject_predicate_entity_object_ID(self, triple_index: int, subject: int, predicate: int, object: int) -> None:
             self.set_subject_ID(triple_index, subject)
             self.set_predicate_ID(triple_index, predicate)
             self.set_entity_object_ID(triple_index, object)
@@ -524,9 +524,9 @@ def torch_query_builder(relmap: Optional[RelationMapper], entmap: Optional[Entit
             self.qualifiers[0, qualifier_index] = predicate_index
             self.qualifiers[2, qualifier_index] = triple_index
 
-        def set_qualifier_rel_ID(self, qualifier_index: int, predicateIndex: int, tripleIndex: int) -> None:
+        def set_qualifier_rel_ID(self, qualifier_index: int, predicateIndex: int, triple_index: int) -> None:
             self.qualifiers[0, qualifier_index] = predicateIndex
-            self.qualifiers[2, qualifier_index] = tripleIndex
+            self.qualifiers[2, qualifier_index] = triple_index
 
         def set_qualifier_entity_val(self, triple_index: int, qualifier_index: int, value: str) -> None:
             assert entmap is not None
@@ -534,11 +534,11 @@ def torch_query_builder(relmap: Optional[RelationMapper], entmap: Optional[Entit
             # set forward
             self.qualifiers[1, qualifier_index] = value_index
 
-        def set_qualifier_entity_val_ID(self, qualifier_index: int, value_index: int, tripleIndex: int) -> None:
+        def set_qualifier_entity_val_ID(self, qualifier_index: int, value_index: int, triple_index: int) -> None:
             self.qualifiers[1, qualifier_index] = value_index
-            # note: tripleIndex is not set. We assume it is set in set_qualifier_rel_ID, eithe before or after this call.
+            # note: triple_index is not set. We assume it is set in set_qualifier_rel_ID, eithe before or after this call.
 
-        def set_qualifier_literal_val(self, tripleIndex: int, index: int, value: str) -> None:
+        def set_qualifier_literal_val(self, triple_index: int, qualifier_index: int, literal_value: str) -> None:
             raise NotImplementedError("TensorBuilder does not support literal values, use protocol buffers.")
 
         def set_easy_entity_targets(self, values: Iterable[str]) -> None:
@@ -626,11 +626,11 @@ def torch_query_builder(relmap: Optional[RelationMapper], entmap: Optional[Entit
 #         def set_predicate(self, index: int, predicate: str) -> None:
 #             self.triples[index].predicate = predicate
 
-#         def set_qualifier_rel(self, tripleIndex: int, index: int, predicate: str) -> None:
+#         def set_qualifier_rel(self, triple_index: int, index: int, predicate: str) -> None:
 #             """These get intentionally ignored in this converter"""
 #             pass
 
-#         def set_qualifier_val(self, tripleIndex: int, index: int, value: str) -> None:
+#         def set_qualifier_val(self, triple_index: int, index: int, value: str) -> None:
 #             """These get intentionally ignored in this converter"""
 #             pass
 

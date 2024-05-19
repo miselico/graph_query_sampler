@@ -11,7 +11,7 @@ import traceback
 from collections import defaultdict
 from contextlib import ExitStack
 from pathlib import Path
-from typing import (Any, DefaultDict, Dict, Generator, Iterable, Optional, Tuple)
+from typing import (Any, Callable, DefaultDict, Dict, Generator, Iterable, Optional, Tuple)
 
 import pandas as pd
 from gqs.dataset import Dataset
@@ -444,8 +444,9 @@ def _read_csv_and_target_column(input_file: Path) -> Tuple[pd.DataFrame, str]:
 def _read_csv_with_target_as_set(input_file: Path) -> Tuple[pd.DataFrame, str]:
     """Read a CSV file into a pandas df. Then converts the column which contains the targets into set objects. Returns the new df and the target column name"""
     dataset, target_column = _read_csv_and_target_column(input_file)
+    split_in_set: Callable[[str], set[str]] = lambda value: set(value.split("|"))
     dataset[target_column] = dataset[target_column].map(
-        lambda value: set(value.split("|"))
+        split_in_set
     )
     return dataset, target_column
 
@@ -484,22 +485,25 @@ def assert_query_validity(fieldnames: Iterable[str]) -> bool:
     # keep track of what has been found
     target_found = False
     diameter_found = False
-    spo_found = [[False, False, False] for i in range(expected_triple_count)]
+    spo_found = [[False, False, False] for _ in range(expected_triple_count)]
     # The qualifier relation and value must refer to the same triple, we remmeber the triple number and verify in the end.
-    qr_qv_found = [[-1, -1] for i in range(expected_qualifier_count)]
+    qr_qv_found = [[-1, -1] for _ in range(expected_qualifier_count)]
     for part in fieldnames:
         # Note: at this point, targets are not yet split into hard and easy!
-        if part.endswith("_targets"):
-            assert target_found is False, "more than one column with _target found. Giving up."
-            target_found = True
-            targetHeader = part[:-len("_targets")]
-            subparts = targetHeader.split('_')
-            assert "var" not in subparts, "'var' cannot occur in the same header with 'target', , got {part}"
-        if part.endswith("_var"):
-            varheader = part[:-len("_var")]
-            subparts = varheader.split("_")
-            assert "targets" not in subparts, f"'var' cannot occur in the same header with 'target', got {part}"
+
         if part.endswith("_targets") or part.endswith("_var"):
+            if part.endswith("_targets"):
+                assert target_found is False, "more than one column with _target found. Giving up."
+                target_found = True
+                targetHeader = part[:-len("_targets")]
+                subparts = targetHeader.split('_')
+                assert "var" not in subparts, "'var' cannot occur in the same header with 'target', , got {part}"
+            elif part.endswith("_var"):
+                var_header = part[:-len("_var")]
+                subparts = var_header.split("_")
+                assert "targets" not in subparts, f"'var' cannot occur in the same header with 'target', got {part}"
+            else:
+                raise AssertionError("Control flow can never reach here")
             # This header must contain only s, o, qr, qv
             for subpart in subparts:
                 if not any((
@@ -533,41 +537,41 @@ def assert_query_validity(fieldnames: Iterable[str]) -> bool:
             # we treat each different: subject, predicate, object, qr, qv
             if subject_matcher.match(subpart):
                 # it is a subject
-                tripleIndex = int(subpart[1:])
-                assert tripleIndex < expected_triple_count, \
-                    f"Found a {subpart} refering to triple {tripleIndex} while we only have {expected_triple_count} triples"
-                assert not spo_found[tripleIndex][0]
-                spo_found[tripleIndex][0] = True
+                triple_index = int(subpart[1:])
+                assert triple_index < expected_triple_count, \
+                    f"Found a {subpart} referring to triple {triple_index} while we only have {expected_triple_count} triples"
+                assert not spo_found[triple_index][0]
+                spo_found[triple_index][0] = True
             elif predicate_matcher.match(subpart):
-                tripleIndex = int(subpart[1:])
-                assert tripleIndex < expected_triple_count, \
-                    f"Found a {subpart} refering to triple {tripleIndex} while we only have {expected_triple_count} triples"
-                assert not spo_found[tripleIndex][1]
-                spo_found[tripleIndex][1] = True
+                triple_index = int(subpart[1:])
+                assert triple_index < expected_triple_count, \
+                    f"Found a {subpart} referring to triple {triple_index} while we only have {expected_triple_count} triples"
+                assert not spo_found[triple_index][1]
+                spo_found[triple_index][1] = True
             elif entity_object_matcher.match(subpart) or literal_object_matcher.match(subpart):
-                tripleIndex = int(subpart[1:]) if entity_object_matcher.match(subpart) else int(subpart[2:])
-                assert tripleIndex < expected_triple_count, \
-                    f"Found a {subpart} refering to triple {tripleIndex} while we only have {expected_triple_count} triples"
-                assert not spo_found[tripleIndex][2]
-                spo_found[tripleIndex][2] = True
+                triple_index = int(subpart[1:]) if entity_object_matcher.match(subpart) else int(subpart[2:])
+                assert triple_index < expected_triple_count, \
+                    f"Found a {subpart} referring to triple {triple_index} while we only have {expected_triple_count} triples"
+                assert not spo_found[triple_index][2]
+                spo_found[triple_index][2] = True
             elif qualifier_relation_matcher.match(subpart):
                 indices = subpart[2:].split('i')
-                tripleIndex = int(indices[0])
-                assert tripleIndex < expected_triple_count, f"qualifier relation {subpart} refers to non existing triple {tripleIndex}"
+                triple_index = int(indices[0])
+                assert triple_index < expected_triple_count, f"qualifier relation {subpart} refers to non existing triple {triple_index}"
                 qualIndex = int(indices[1])
                 assert qr_qv_found[qualIndex][0] == -1, f"qualifier relation qrXi{qualIndex} set twice"
-                qr_qv_found[qualIndex][0] = tripleIndex
+                qr_qv_found[qualIndex][0] = triple_index
             elif entity_qualifier_value_matcher.match(subpart) or literal_qualifier_value_matcher.match(subpart):
                 indices = subpart[2:].split('i') if entity_qualifier_value_matcher.match(subpart) else subpart[3:].split('i')
-                tripleIndex = int(indices[0])
-                assert tripleIndex < expected_triple_count, f"qualifier value {subpart} refers to non existing triple {tripleIndex}"
+                triple_index = int(indices[0])
+                assert triple_index < expected_triple_count, f"qualifier value {subpart} refers to non existing triple {triple_index}"
                 qualIndex = int(indices[1])
                 assert qualIndex < expected_qualifier_count, f"Found qualifier value {subpart} for which there is no corresponding qr{qualIndex}"
                 assert qr_qv_found[qualIndex][1] == -1, f"qualifier value qvXi{qualIndex} set twice"
-                qr_qv_found[qualIndex][1] = tripleIndex
+                qr_qv_found[qualIndex][1] = triple_index
             else:
                 raise AssertionError(f"Unknown column with name '{subpart}'")
-    # The qualifier relation and value must refer to the same triple, we remmeber the triple number and verify in the end.
+    # The qualifier relation and value must refer to the same triple, we remember the triple number and verify in the end.
     assert target_found, "No column found with _target"
     assert diameter_found, "No query diameter specified"
     for (index, spo) in enumerate(spo_found):
@@ -583,15 +587,15 @@ def assert_query_validity(fieldnames: Iterable[str]) -> bool:
     # For each triple there must be at least one end that is joined with an s or o of another triple or with a qv.
     # We only check that it at least co-occurs with something. This leaves some case where triples are looping on themselves undiscovered.
     # Note that at this point we are already sure that all qualifiers are connected to triples and all fields have already been checked above.
-    # In principle, this loop could occur as part of the above code checking the field, but that would render it pretty much unreadble.
-    connectionFound = [False for i in range(expected_triple_count)]
+    # In principle, this loop could occur as part of the above code checking the field, but that would render it pretty much unreadable.
+    connectionFound = [False for _ in range(expected_triple_count)]
     for part in fieldnames:
         if part.endswith("_targets"):
             targetHeader = part[:-len("_targets")]
             subparts = targetHeader.split('_')
         elif part.endswith("_var"):
-            varheader = part[:-len("_var")]
-            subparts = varheader.split("_")
+            var_header = part[:-len("_var")]
+            subparts = var_header.split("_")
         else:
             # split the part if it is used multiple times
             subparts = part.split("_")
@@ -601,11 +605,11 @@ def assert_query_validity(fieldnames: Iterable[str]) -> bool:
         for subpart in subparts:
             # we treat each different: subject, predicate, object, qr, qv.
             if subject_matcher.match(subpart):
-                tripleIndex = int(subpart[1:])
-                connectionFound[tripleIndex] = True
+                triple_index = int(subpart[1:])
+                connectionFound[triple_index] = True
             elif entity_object_matcher.match(subpart) or literal_object_matcher.match(subpart):
-                tripleIndex = int(subpart[1:])
-                connectionFound[tripleIndex] = True
+                triple_index = int(subpart[1:])
+                connectionFound[triple_index] = True
             else:
                 # Just fine. Other things could occur in these fields, but we can ignore these here.
                 pass

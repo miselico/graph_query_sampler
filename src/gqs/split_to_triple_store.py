@@ -1,4 +1,4 @@
-"""Functions to upload the dataseplits to triple stores"""
+"""Functions to upload the dataset splits to triple stores"""
 
 import json
 import pathlib
@@ -77,16 +77,16 @@ def create_graphdb_repository(repositoryID: str, graphdb_url: str) -> None:
     ''')}
     response = requests.post(url=url, files=files)
     if response.status_code != 201:
-        raise Exception(f"Creating the repository failed. does it alreade exist? Message: {str(response.content)}")
+        raise Exception(f"Creating the repository failed. does it already exist? Message: {str(response.content)}")
 
 
-def store_triples_graphDB(dataset: Dataset, data: pathlib.Path, graphname: str, graphdb_url: str) -> None:
+def store_triples_graphDB(dataset: Dataset, data: pathlib.Path, graph_name: str, graphdb_url: str) -> None:
     repositoryID = dataset.graphDB_repositoryID()
     url = f"{graphdb_url}/rest/data/import/upload/{repositoryID}/file"
 
     unique_name = str(uuid.uuid4()) + "-data.nt"
 
-    import_settings = {"name": unique_name, "status": "NONE", "context": graphname,
+    import_settings = {"name": unique_name, "status": "NONE", "context": graph_name,
                        "replaceGraphs": [], "baseURI": None, "forceSerial": False, "type": None,
                        "data": "somedatatotest", "timestamp": 0,
                        "parserSettings": {
@@ -107,7 +107,7 @@ def store_triples_graphDB(dataset: Dataset, data: pathlib.Path, graphname: str, 
     response = requests.post(url=url, files=files)  # type: ignore
     if response.status_code != 202:
         raise Exception(f"Unexpected response from triple store. Uploading the file failed: {str(response.content)}")
-    logger.info("Started importing {data} into repository: {repositoryID} graph: {graphname}. Waiting for import to finish")
+    logger.info(f"Started importing {data} into repository: {repositoryID} graph: {graph_name}. Waiting for import to finish")
     while True:
         time.sleep(1.0)
         url = f"{graphdb_url}/rest/data/import/upload/{repositoryID}"
@@ -127,7 +127,7 @@ def store_triples_graphDB(dataset: Dataset, data: pathlib.Path, graphname: str, 
                 resp = requests.delete(url=url, headers={"Content-type": "application/json;charset=UTF-8"}, data=payload)
                 if resp.status_code != 200:
                     raise Exception("Removing the file failed. Maybe something went wrong.")
-                logger.info(f"Temp file removed. Done importing: {data} into repository: {repositoryID} graph: {graphname} ")
+                logger.info(f"Temp file removed. Done importing: {data} into repository: {repositoryID} graph: {graph_name} ")
                 return
             elif status == "ERROR":
                 message = import_info["message"]
@@ -135,7 +135,7 @@ def store_triples_graphDB(dataset: Dataset, data: pathlib.Path, graphname: str, 
             elif status == "IMPORTING":
                 logger.info("Still importing")
             else:
-                raise Exception("Unknown upoad status")
+                raise Exception("Unknown upload status")
 
 
 def remove_graphdb_repository(dataset: Dataset, graphdb_url: str) -> None:

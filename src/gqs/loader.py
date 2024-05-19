@@ -118,7 +118,7 @@ def get_query_datasets(
                 # the setname already contains the splitname!
                 data_file = stats_file_path.parents[0] / (setname + ".proto")
                 assert data_file.exists(), \
-                    f"The datafile {data_file} refered from {stats_file_path} could not be found."
+                    f"The datafile {data_file} referred from {stats_file_path} could not be found."
                 datafiles_and_info.append(DatafileInfo(data_file, amount_in_file, 0, stats["hash"]))
 
             # get how many we need, and then split proportionally
@@ -207,19 +207,19 @@ def read_queries_from_proto_with_reification(
             statement_entity_index = entmap.get_reified_statement_index(index)
             builder_triple_index = 3 * index
 
-            b.set_subject_predicate_entitiy_object_ID(builder_triple_index, statement_entity_index, relmap.reified_subject_index, triple.subject)
+            b.set_subject_predicate_entity_object_ID(builder_triple_index, statement_entity_index, relmap.reified_subject_index, triple.subject)
 
             predicate_entity = entmap.get_entity_for_predicate(triple.predicate)
-            b.set_subject_predicate_entitiy_object_ID(builder_triple_index + 1, statement_entity_index, relmap.reified_predicate_index, predicate_entity)
+            b.set_subject_predicate_entity_object_ID(builder_triple_index + 1, statement_entity_index, relmap.reified_predicate_index, predicate_entity)
 
             assert triple.object.HasField("entity"), "Converting queries with literal values to tensors is not supported."
-            b.set_subject_predicate_entitiy_object_ID(builder_triple_index + 2, statement_entity_index, relmap.reified_object_index, triple.object.entity)
+            b.set_subject_predicate_entity_object_ID(builder_triple_index + 2, statement_entity_index, relmap.reified_object_index, triple.object.entity)
 
         # build qualifiers. These are now just added as triples
         for (builder_triple_index, qualifier) in zip(range(number_of_original_triples * 3, number_of_triples), query.qualifiers):
             statement_entity_index = entmap.get_reified_statement_index(qualifier.corresponding_triple)
             assert qualifier.qualifier_value.HasField("entity")
-            b.set_subject_predicate_entitiy_object_ID(builder_triple_index, statement_entity_index, qualifier.qualifier_relation, qualifier.qualifier_value.entity)
+            b.set_subject_predicate_entity_object_ID(builder_triple_index, statement_entity_index, qualifier.qualifier_relation, qualifier.qualifier_value.entity)
 
         # set diameter and targets
         b.set_diameter(query.diameter)
@@ -269,7 +269,7 @@ def read_queries_from_proto_without_reification(
         # build triples
         for (index, triple) in enumerate(query.triples):
             assert triple.object.HasField("entity"), "Converting queries with literal values to tensors is not supported."
-            b.set_subject_predicate_entitiy_object_ID(index, triple.subject, triple.predicate, triple.object.entity)
+            b.set_subject_predicate_entity_object_ID(index, triple.subject, triple.predicate, triple.object.entity)
         if not remove_qualifiers:
             # build qualifier
             for (index, qualifier) in enumerate(query.qualifiers):
