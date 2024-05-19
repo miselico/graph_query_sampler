@@ -1,5 +1,6 @@
 """Functions to split a file with triples into a train, validation, and test split"""
 
+from io import TextIOWrapper
 import pathlib
 import random
 from collections import Counter
@@ -34,7 +35,7 @@ def _count_non_comment_lines(input_file: pathlib.Path) -> int:
 
 
 def from_dataset_link_prediction_style(input: pathlib.Path, dataset: Dataset) -> None:
-    raise NotImplementedError("It appears there is an issue with this code. It is using the same identitiers for entities and relations and writes them to one file")
+    raise NotImplementedError("It appears there is an issue with this code. It is using the same identifiers for entities and relations and writes them to one file")
     # cache = _IRIhashCache()
     # # we use the blank node cache as it can be used for any non-compatible string really
 
@@ -58,19 +59,19 @@ def from_dataset_link_prediction_style(input: pathlib.Path, dataset: Dataset) ->
 
 def split_random(dataset: Dataset, splits: Iterable[Split], seed: int, lines: Optional[int] = None) -> None:
     validate_splits(splits)
-    # The following esures all files will be closed correctly
+    # The following ensures all files will be closed correctly
     input_file = dataset.raw_input_file()
     if lines is None:
         lines = _count_non_comment_lines(input_file)
 
     with ExitStack() as stack:
-        randomized_splits = []
+        randomized_splits: list[TextIOWrapper] = []
         for split in splits:
             total_for_this_split = int(split.fraction * lines)
             split.path.parent.mkdir(parents=True, exist_ok=True)
             opened_file = stack.enter_context(open(split.path, "w"))
-            randomized_splits.extend([opened_file for i in range(total_for_this_split)])
-        # it is possibel that due to rounding, randomizedsplits is not exactly as long as the file
+            randomized_splits.extend([opened_file for _ in range(total_for_this_split)])
+        # it is possible that due to rounding, randomized_splits is not exactly as long as the file
         while len(randomized_splits) > lines:
             # remove the last element
             randomized_splits.pop
@@ -95,7 +96,7 @@ def split_random(dataset: Dataset, splits: Iterable[Split], seed: int, lines: Op
 
 def split_round_robin(dataset: Dataset, splits: Iterable[Split]) -> None:
     input_file = dataset.raw_input_file()
-    # The following esures all files will be closed correctly
+    # The following ensures all files will be closed correctly
     validate_splits(splits)
     counters: Counter[pathlib.Path] = Counter()
     total_count = 0

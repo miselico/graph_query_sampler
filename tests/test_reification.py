@@ -28,7 +28,7 @@ def test_reification(tmp_path: pathlib.Path) -> None:
                                                      "?var1",
                                                      "predicate_1",
                                                      entmap.get_target_entity_name())
-    # def set_qualifier_rel_val(self, tripleIndex: int, qualifier_index: int, predicate: str, value: str) -> None:
+    # def set_qualifier_rel_val(self, triple_index: int, qualifier_index: int, predicate: str, value: str) -> None:
     queryBuilder.set_qualifier_rel_entity_val(0, 0, "predicate_2", "entity_3")
     queryBuilder.set_qualifier_rel_entity_val(0, 1, "predicate_3", "entity_4")
     queryBuilder.set_qualifier_rel_entity_val(1, 2, "predicate_4", "entity_5")
