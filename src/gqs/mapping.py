@@ -95,7 +95,24 @@ class RelationMapper:
             mapping = self._inverse_mapping
         return mapping[relation_id]
 
-    def get_inverse_of_index(self, relation_index: int) -> int:
+    def get_inverted_relation_index(self, relation_index: int) -> int:
+        """
+        Get the numeric index of a the inverse of the specified relation. The specified relation must be obtained from an earlier lookup call.
+        If the provided relation index is a forward, the result will be its inverse. If it was an inverse, the result will be the inverse inverse, hence the forward.
+        Warning: it is not possible to get a representation fo the reified statement IDs this way!
+
+        arguments
+        ----------
+            relation_index: int
+            The relation index.
+        """
+        assert relation_index >= 0 and relation_index <= self._inverse_end
+        if relation_index < self._inverse_start:
+            return relation_index + self._inverse_start
+        else:
+            return relation_index - self._inverse_start
+
+    def get_backward_of_index(self, relation_index: int) -> int:
         """
         Get the numeric index of a the inverse of the specified relation. The specified relation must be obtained from an earlier lookup call.
         Warning: this can only give the inverse of a forward relation. You cannot get the forward relation of one which has been inverted before.
@@ -109,7 +126,7 @@ class RelationMapper:
         assert relation_index >= 0 and relation_index < self._inverse_start
         return relation_index + self._inverse_start
 
-    def get_inverse_relation(self, relation: str) -> int:
+    def get_backward_relation(self, relation: str) -> int:
         """
         Get the numeric index of the inverse of a relation.
         Warning: it is not possible to get a representation for the inverse of reified statement IDs this way!
@@ -120,7 +137,7 @@ class RelationMapper:
             The name of the relation
         """
         relation_index = self.lookup(relation)
-        return self.get_inverse_of_index(relation_index)
+        return self.get_backward_of_index(relation_index)
 
     def get_largest_forward_relation_id(self) -> int:
         """Return the largest forward relation ID. Does not include inverse relations."""
@@ -162,7 +179,7 @@ class EntityMapper:
             index_with_offset = self._relation_entity_start + relation_index
             self._relation_mapping[relation_index] = index_with_offset
             # We also add entities for inverse relations, we look up the
-            inverse_relation_index = relation_mapper.get_inverse_of_index(relation_index)
+            inverse_relation_index = relation_mapper.get_backward_of_index(relation_index)
             inverse_relation_index_with_offset = inverse_relation_index + self._relation_entity_start
             self._relation_mapping[inverse_relation_index] = inverse_relation_index_with_offset
 

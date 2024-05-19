@@ -97,7 +97,7 @@ class TorchQuery:
         new_edge_index[0, number_of_riples:] = self.edge_index[1]
         new_edge_index[1, number_of_riples:] = self.edge_index[0]
         for index, val in enumerate(self.edge_type):
-            new_edge_type[number_of_riples + index] = relmap.get_inverse_of_index(int(val))
+            new_edge_type[number_of_riples + index] = relmap.get_inverted_relation_index(int(val))
         # for the qualifiers, we first copy and then update the indices to the corresponding triples
         new_qualifier_index[:, number_of_qualifiers:] = self.qualifier_index
         new_qualifier_index[2, number_of_qualifiers:] += number_of_riples

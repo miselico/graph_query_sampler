@@ -36,7 +36,7 @@ def test_entity_mapper() -> None:
             inverse_predicate_entities = set()
             for relation in relations:
                 inverse_predicate_entity = entmap.get_entity_for_predicate(
-                    relmap.get_inverse_of_index(relmap.lookup(relation)))
+                    relmap.get_backward_of_index(relmap.lookup(relation)))
                 assert inverse_predicate_entity not in inverse_predicate_entities
                 inverse_predicate_entities.add(inverse_predicate_entity)
             assert len(inverse_predicate_entities) == relation_count
@@ -74,7 +74,7 @@ def test_relation_mapper_one_relation() -> None:
     # all these assertions make assumptions regarding non-documented ordering of the indices.
     # users of the mapping must not make these assumptions
     assert relmap.lookup("relation") == 0
-    assert relmap.get_inverse_of_index(0) == 4
+    assert relmap.get_backward_of_index(0) == 4
     assert relmap.get_largest_forward_relation_id() == 3  # the one added and 3 for the reification relations
     assert relmap.reified_subject_index == 1
     assert relmap.reified_predicate_index == 2
@@ -95,7 +95,7 @@ def test_relation_mapper_many_relations() -> None:
         assert all(map(lambda index: isinstance(index, int), all_relation_indices))
         inverse_relation_indices = set()
         for relation_index in all_relation_indices:
-            inverse_index = relmap.get_inverse_of_index(relation_index)
+            inverse_index = relmap.get_backward_of_index(relation_index)
             assert inverse_index not in inverse_relation_indices
             inverse_relation_indices.add(inverse_index)
         assert len(inverse_relation_indices) == relation_count
