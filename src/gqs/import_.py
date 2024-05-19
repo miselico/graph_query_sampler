@@ -91,10 +91,15 @@ def _mappers(rel_map: RelationMapper, ent_map: EntityMapper, builder_factory: Ty
         builder.set_diameter(1)
         (e, (r,)) = KGlib_query
         # most builders will map this back..
+
+        # if r % 2 == 1:
+        #     r = rel_map.get_inverse_of_index(r-1)
+
         builder.set_subject_predicate_entity_object(0,
                                                     ent_map.inverse_lookup(e),
                                                     rel_map.inverse_lookup(r),
                                                     EntityMapper.get_target_entity_name())
+
         return builder
 
     def _2hop(KGlib_query: KGQueryInstance) -> QueryBuilder[T]:

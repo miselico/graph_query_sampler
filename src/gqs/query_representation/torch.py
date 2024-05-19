@@ -102,9 +102,9 @@ class TorchQuery:
         new_qualifier_index[:, number_of_qualifiers:] = self.qualifier_index
         new_qualifier_index[2, number_of_qualifiers:] += number_of_riples
 
-        new_easy_targets = self.easy_targets
-        new_hard_targets = self.hard_targets
-        new_query_diameter = self.query_diameter
+        new_easy_targets = torch.Tensor(self.easy_targets)
+        new_hard_targets = torch.Tensor(self.hard_targets)
+        new_query_diameter = torch.Tensor(self.query_diameter)
 
         return TorchQuery(new_edge_index, new_edge_type, new_qualifier_index, new_easy_targets, new_hard_targets,
                           new_query_diameter, inverses_already_set=True)
