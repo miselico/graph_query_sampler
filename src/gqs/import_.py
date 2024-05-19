@@ -5,8 +5,13 @@
     2. the data splits
     3. the test queries.
 
-    It does not convert the train and validation queries
-      because it is up to any system to create them the way they want, potentially using the gqs framework.
+    It can also convert the train and validation queries. However, often it is up to any system to create them the way they want, potentially using the gqs framework.
+
+    This import assumes that the original relation mapping has alternating forward and backward relations in the imported mapping.
+    The forward relations are kept with their original indices.
+    The backward relations retain their indices, but are never used.
+    If backward relations are used in the queries, then the triple containing that relation is inverted and the forward relation type is used.
+
 """
 
 
@@ -86,19 +91,31 @@ KGQueryInstance = tuple[Any, ...]
 def _mappers(rel_map: RelationMapper, ent_map: EntityMapper, builder_factory: Type[QueryBuilder[T]]) -> dict[KGQueryShape, tuple[str, Callable[[KGQueryInstance], QueryBuilder[T]]]]:
     # In all of these, we map from int to str. Most builders will map this back to int. this could be optimized out.
 
+    def set_triple(builder: QueryBuilder[T], triple_index: int, subject: str, predicate_ID: int, object: str) -> None:
+        if predicate_ID % 2 == 0:
+            # predicate is a forward relation
+            builder.set_subject_predicate_entity_object(triple_index, subject, rel_map.inverse_lookup(predicate_ID), object)
+        else:
+            # predicate is an backward relation, first get the forward relation ID
+            forward_predicate_ID_int = predicate_ID - 1
+            del predicate_ID
+
+            predicate_ID_str = rel_map.inverse_lookup(forward_predicate_ID_int)
+            # Add the inverted edge
+            builder.set_subject_predicate_entity_object(triple_index, object, predicate_ID_str, subject)
+
     def _1hop(KGlib_query: KGQueryInstance) -> QueryBuilder[T]:
         builder = builder_factory(1, 0)
         builder.set_diameter(1)
         (e, (r,)) = KGlib_query
         # most builders will map this back..
 
-        # if r % 2 == 1:
-        #     r = rel_map.get_inverse_of_index(r-1)
-
-        builder.set_subject_predicate_entity_object(0,
-                                                    ent_map.inverse_lookup(e),
-                                                    rel_map.inverse_lookup(r),
-                                                    EntityMapper.get_target_entity_name())
+        set_triple(builder,
+                   0,
+                   ent_map.inverse_lookup(e),
+                   r,
+                   EntityMapper.get_target_entity_name()
+                   )
 
         return builder
 
@@ -107,14 +124,16 @@ def _mappers(rel_map: RelationMapper, ent_map: EntityMapper, builder_factory: Ty
         builder.set_diameter(2)
         (e, (r0, r1)) = KGlib_query
         # most builders will map this back..
-        builder.set_subject_predicate_entity_object(0,
-                                                    ent_map.inverse_lookup(e),
-                                                    rel_map.inverse_lookup(r0),
-                                                    "?var0")
-        builder.set_subject_predicate_entity_object(1,
-                                                    "?var0",
-                                                    rel_map.inverse_lookup(r1),
-                                                    EntityMapper.get_target_entity_name())
+        set_triple(builder,
+                   0,
+                   ent_map.inverse_lookup(e),
+                   r0,
+                   "?var0")
+        set_triple(builder,
+                   1,
+                   "?var0",
+                   r1,
+                   EntityMapper.get_target_entity_name())
         return builder
 
     def _3hop(KGlib_query: KGQueryInstance) -> QueryBuilder[T]:
@@ -122,18 +141,21 @@ def _mappers(rel_map: RelationMapper, ent_map: EntityMapper, builder_factory: Ty
         builder.set_diameter(3)
         e, (r0, r1, r2) = KGlib_query
         # most builders will map this back..
-        builder.set_subject_predicate_entity_object(0,
-                                                    ent_map.inverse_lookup(e),
-                                                    rel_map.inverse_lookup(r0),
-                                                    "?var0")
-        builder.set_subject_predicate_entity_object(1,
-                                                    "?var0",
-                                                    rel_map.inverse_lookup(r1),
-                                                    "?var1")
-        builder.set_subject_predicate_entity_object(2,
-                                                    "?var1",
-                                                    rel_map.inverse_lookup(r2),
-                                                    EntityMapper.get_target_entity_name())
+        set_triple(builder,
+                   0,
+                   ent_map.inverse_lookup(e),
+                   r0,
+                   "?var0")
+        set_triple(builder,
+                   1,
+                   "?var0",
+                   r1,
+                   "?var1")
+        set_triple(builder,
+                   2,
+                   "?var1",
+                   r2,
+                   EntityMapper.get_target_entity_name())
         return builder
 
     def _2i(KGlib_query: KGQueryInstance) -> QueryBuilder[T]:
@@ -141,14 +163,16 @@ def _mappers(rel_map: RelationMapper, ent_map: EntityMapper, builder_factory: Ty
         builder.set_diameter(1)
         ((e0, (r0,)), (e1, (r1,))) = KGlib_query
         # most builders will map this back..
-        builder.set_subject_predicate_entity_object(0,
-                                                    ent_map.inverse_lookup(e0),
-                                                    rel_map.inverse_lookup(r0),
-                                                    EntityMapper.get_target_entity_name())
-        builder.set_subject_predicate_entity_object(1,
-                                                    ent_map.inverse_lookup(e1),
-                                                    rel_map.inverse_lookup(r1),
-                                                    EntityMapper.get_target_entity_name())
+        set_triple(builder,
+                   0,
+                   ent_map.inverse_lookup(e0),
+                   r0,
+                   EntityMapper.get_target_entity_name())
+        set_triple(builder,
+                   1,
+                   ent_map.inverse_lookup(e1),
+                   r1,
+                   EntityMapper.get_target_entity_name())
         return builder
 
     def _3i(KGlib_query: KGQueryInstance) -> QueryBuilder[T]:
@@ -156,18 +180,21 @@ def _mappers(rel_map: RelationMapper, ent_map: EntityMapper, builder_factory: Ty
         builder.set_diameter(1)
         ((e0, (r0,)), (e1, (r1,)), (e2, (r2,))) = KGlib_query
         # most builders will map this back..
-        builder.set_subject_predicate_entity_object(0,
-                                                    ent_map.inverse_lookup(e0),
-                                                    rel_map.inverse_lookup(r0),
-                                                    EntityMapper.get_target_entity_name())
-        builder.set_subject_predicate_entity_object(1,
-                                                    ent_map.inverse_lookup(e1),
-                                                    rel_map.inverse_lookup(r1),
-                                                    EntityMapper.get_target_entity_name())
-        builder.set_subject_predicate_entity_object(2,
-                                                    ent_map.inverse_lookup(e2),
-                                                    rel_map.inverse_lookup(r2),
-                                                    EntityMapper.get_target_entity_name())
+        set_triple(builder,
+                   0,
+                   ent_map.inverse_lookup(e0),
+                   r0,
+                   EntityMapper.get_target_entity_name())
+        set_triple(builder,
+                   1,
+                   ent_map.inverse_lookup(e1),
+                   r1,
+                   EntityMapper.get_target_entity_name())
+        set_triple(builder,
+                   2,
+                   ent_map.inverse_lookup(e2),
+                   r2,
+                   EntityMapper.get_target_entity_name())
 
         return builder
 
@@ -176,18 +203,21 @@ def _mappers(rel_map: RelationMapper, ent_map: EntityMapper, builder_factory: Ty
         builder.set_diameter(2)
         ((e0, (r0,)), (e1, (r1,))), (r2,) = KGlib_query
         # most builders will map this back..
-        builder.set_subject_predicate_entity_object(0,
-                                                    ent_map.inverse_lookup(e0),
-                                                    rel_map.inverse_lookup(r0),
-                                                    "?var0")
-        builder.set_subject_predicate_entity_object(1,
-                                                    ent_map.inverse_lookup(e1),
-                                                    rel_map.inverse_lookup(r1),
-                                                    "?var0")
-        builder.set_subject_predicate_entity_object(2,
-                                                    "?var0",
-                                                    rel_map.inverse_lookup(r2),
-                                                    EntityMapper.get_target_entity_name())
+        set_triple(builder,
+                   0,
+                   ent_map.inverse_lookup(e0),
+                   r0,
+                   "?var0")
+        set_triple(builder,
+                   1,
+                   ent_map.inverse_lookup(e1),
+                   r1,
+                   "?var0")
+        set_triple(builder,
+                   2,
+                   "?var0",
+                   r2,
+                   EntityMapper.get_target_entity_name())
         return builder
 
     def _1hop_2i(KGlib_query: KGQueryInstance) -> QueryBuilder[T]:
@@ -195,18 +225,21 @@ def _mappers(rel_map: RelationMapper, ent_map: EntityMapper, builder_factory: Ty
         builder.set_diameter(2)
         ((e0, (r0, r1)), (e1, (r2,))) = KGlib_query
         # most builders will map this back..
-        builder.set_subject_predicate_entity_object(0,
-                                                    ent_map.inverse_lookup(e0),
-                                                    rel_map.inverse_lookup(r0),
-                                                    "?var0")
-        builder.set_subject_predicate_entity_object(1,
-                                                    "?var0",
-                                                    rel_map.inverse_lookup(r1),
-                                                    EntityMapper.get_target_entity_name())
-        builder.set_subject_predicate_entity_object(2,
-                                                    ent_map.inverse_lookup(e1),
-                                                    rel_map.inverse_lookup(r2),
-                                                    EntityMapper.get_target_entity_name())
+        set_triple(builder,
+                   0,
+                   ent_map.inverse_lookup(e0),
+                   r0,
+                   "?var0")
+        set_triple(builder,
+                   1,
+                   "?var0",
+                   r1,
+                   EntityMapper.get_target_entity_name())
+        set_triple(builder,
+                   2,
+                   ent_map.inverse_lookup(e1),
+                   r2,
+                   EntityMapper.get_target_entity_name())
 
         return builder
 
