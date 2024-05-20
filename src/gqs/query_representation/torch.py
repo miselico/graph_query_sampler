@@ -83,24 +83,24 @@ class TorchQuery:
             A new TorchQuery object with the inverse edges (and accompanying qualifiers) set
         """
         assert not self.inverses_already_set
-        number_of_riples = self.get_number_of_triples()
+        number_of_triples = self.get_number_of_triples()
         number_of_qualifiers = self.get_number_of_qualifiers()
         # Double the space for edges, edge types and qualifier
-        new_edge_index = torch.full((2, number_of_riples * 2), -1, dtype=torch.int)
-        new_edge_type = torch.full((number_of_riples * 2,), -1, dtype=torch.int)
+        new_edge_index = torch.full((2, number_of_triples * 2), -1, dtype=torch.int)
+        new_edge_type = torch.full((number_of_triples * 2,), -1, dtype=torch.int)
         new_qualifier_index = torch.full((3, number_of_qualifiers * 2), -1, dtype=torch.int)
         # copy old values
-        new_edge_index[:, 0:number_of_riples] = self.edge_index
-        new_edge_type[:, 0:number_of_riples] = self.edge_type
+        new_edge_index[:, 0:number_of_triples] = self.edge_index
+        new_edge_type[0:number_of_triples] = self.edge_type
         new_qualifier_index[:, 0:number_of_qualifiers] = self.qualifier_index
         # add the inverse values
-        new_edge_index[0, number_of_riples:] = self.edge_index[1]
-        new_edge_index[1, number_of_riples:] = self.edge_index[0]
+        new_edge_index[0, number_of_triples:] = self.edge_index[1]
+        new_edge_index[1, number_of_triples:] = self.edge_index[0]
         for index, val in enumerate(self.edge_type):
-            new_edge_type[number_of_riples + index] = relmap.get_inverted_relation_index(int(val))
+            new_edge_type[number_of_triples + index] = relmap.get_inverted_relation_index(int(val))
         # for the qualifiers, we first copy and then update the indices to the corresponding triples
         new_qualifier_index[:, number_of_qualifiers:] = self.qualifier_index
-        new_qualifier_index[2, number_of_qualifiers:] += number_of_riples
+        new_qualifier_index[2, number_of_qualifiers:] += number_of_triples
 
         new_easy_targets = torch.Tensor(self.easy_targets)
         new_hard_targets = torch.Tensor(self.hard_targets)
