@@ -27,7 +27,8 @@ from .query_representation.torch import TorchQuery
 __all__ = [
     "convert_all",
     "protobuf_builder",
-    "torch_query_builder"
+    "torch_query_builder",
+    "QueryBuilder"
     # "StrippedSPARQLResultBuilder"
 ]
 
