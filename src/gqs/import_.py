@@ -20,6 +20,8 @@ import logging
 import pickle
 import pathlib
 from typing import Any, Callable, Literal, Type, TypeVar, cast
+from urllib.parse import ParseResult, urlparse, quote
+
 from gqs.conversion import protobuf_builder
 from gqs.dataset import Dataset
 from gqs.mapping import RelationMapper, EntityMapper
@@ -55,7 +57,16 @@ def _convert_mapper(id2X_file: pathlib.Path, target_file: pathlib.Path) -> None:
     with open(target_file, "w") as output:
         sep = ""
         for i in range(num_ids):
-            output.write(f"{sep}{mapping[i]}")
+            iri_raw: str = mapping[i]
+            try:
+                parsed: ParseResult = urlparse(iri_raw)
+                assert parsed.scheme
+                assert parsed.scheme != "gqs", f"the iri {iri_raw} in the imported dataset contains the protocol used by gqs to escape strings which are not valid URIs"
+                iri_clean: str = iri_raw
+            except ValueError | AssertionError:
+                iri_clean = f"gqs:{quote(iri_raw, safe='/')}"
+                logger.warning(f"identifier {iri_raw} is not a valid IRI, escaping to {iri_clean}")
+            output.write(f"{sep}{iri_clean}")
             sep = "\n"
 
 
@@ -339,7 +350,7 @@ def _convert_queries(import_source: pathlib.Path, dataset: Dataset, lenient: boo
             output_file.write(proto_query_data.SerializeToString())
         # We also need a stats file for this, creating that here
         stats_file_name = output_folder / f"{split}_stats.json"
-        stats = {"name": split, "count": len(query_instances), "hash": f"converted_from_{import_source}_{query_shape}"}
+        stats: dict[str, Any] = {"name": split, "count": len(query_instances), "hash": f"converted_from_{import_source}_{query_shape}"}
         try:
             with stats_file_name.open(mode="w") as stats_file:
                 json.dump(stats, stats_file)
