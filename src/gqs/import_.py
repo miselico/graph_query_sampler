@@ -103,17 +103,17 @@ def _mappers(rel_map: RelationMapper, ent_map: EntityMapper, builder_factory: Ty
     # In all of these, we map from int to str. Most builders will map this back to int. this could be optimized out.
 
     def set_triple(builder: QueryBuilder[T], triple_index: int, subject: str, predicate_ID: int, object: str) -> None:
-        if predicate_ID % 2 == 0:
+        # if predicate_ID % 2 == 0:
             # predicate is a forward relation
-            builder.set_subject_predicate_entity_object(triple_index, subject, rel_map.inverse_lookup(predicate_ID), object)
-        else:
+        builder.set_subject_predicate_entity_object(triple_index, subject, rel_map.inverse_lookup(predicate_ID), object)
+        # else:
             # predicate is an backward relation, first get the forward relation ID
-            forward_predicate_ID_int = predicate_ID - 1
-            del predicate_ID
+            # forward_predicate_ID_int = predicate_ID - 1
+            # del predicate_ID
 
-            predicate_ID_str = rel_map.inverse_lookup(forward_predicate_ID_int)
-            # Add the inverted edge
-            builder.set_subject_predicate_entity_object(triple_index, object, predicate_ID_str, subject)
+            # predicate_ID_str = rel_map.inverse_lookup(forward_predicate_ID_int)
+            # # Add the inverted edge
+            # builder.set_subject_predicate_entity_object(triple_index, object, predicate_ID_str, subject)
 
     def _1hop(KGlib_query: KGQueryInstance) -> QueryBuilder[T]:
         builder = builder_factory(1, 0)
