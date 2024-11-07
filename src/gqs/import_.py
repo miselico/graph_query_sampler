@@ -63,7 +63,7 @@ def _convert_mapper(id2X_file: pathlib.Path, target_file: pathlib.Path) -> None:
                 assert parsed.scheme
                 assert parsed.scheme != "gqs", f"the iri {iri_raw} in the imported dataset contains the protocol used by gqs to escape strings which are not valid URIs"
                 iri_clean: str = iri_raw
-            except ValueError | AssertionError:
+            except (ValueError , AssertionError):
                 iri_clean = f"gqs:{quote(iri_raw, safe='/')}"
                 logger.warning(f"identifier {iri_raw} is not a valid IRI, escaping to {iri_clean}")
             output.write(f"{sep}{iri_clean}")
